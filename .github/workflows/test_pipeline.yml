@@ -1,0 +1,35 @@
+name: Smoke Test Pipeline
+
+on:
+  workflow_dispatch:  # manual trigger only
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install yfinance duckdb pandas
+
+      - name: Run smoke test
+        env:
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+        run: python scripts/smoke_test.py
+
+      - name: Commit market.db back to repo
+        run: |
+          git config user.email "bot@github.com"
+          git config user.name "PipelineBot"
+          git add data/market.db
+          git diff --cached --quiet || git commit -m "Smoke test: update market.db $(date +'%Y-%m-%d')"
+          git push
