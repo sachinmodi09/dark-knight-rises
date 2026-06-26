@@ -1,0 +1,48 @@
+name: Daily Stock Analysis
+
+on:
+  schedule:
+    # Runs Monday to Friday at 10:00 UTC (3:30 PM IST)
+    - cron: '0 10 * * 1-5'
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  run-daily-scripts:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # Required to commit and push changes to market.db
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install yfinance duckdb pandas
+
+    - name: Run update_daily.py
+      run: python update_daily.py
+
+    - name: Run scan_retest.py
+      run: python scan_retest.py
+      env:
+        EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+
+    - name: Run update_perf.py
+      run: python update_perf.py
+
+    - name: Commit and push changes
+      run: |
+        git config user.name "GitHub Actions Bot"
+        git config user.email "actions@github.com"
+        git add data/market.db output/*.csv || true # Add market.db and any new CSVs, ignore if no new CSVs
+        git commit -m "Automated daily market data update and analysis" || true # || true to prevent job from failing if no changes
+        git push
