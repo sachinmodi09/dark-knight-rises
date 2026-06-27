@@ -1,89 +1,139 @@
-import yfinance as yf
-import pandas as pd
+"""
+init_monthly.py
+One-time script to seed monthly_ohlc table in DuckDB.
+Downloads monthly OHLCV for all stocks in data/stocks.csv from 2016-01-01.
+Run once manually before any automated workflows.
+"""
+
+import os
+import time
 import duckdb
+import pandas as pd
+import yfinance as yf
 from datetime import datetime
 
-DATABASE_PATH = "data/market.db"
-STOCKS_CSV_PATH = "data/stocks.csv"
+DB_PATH = "data/market.db"
+STOCKS_CSV = "data/stocks.csv"
+START_DATE = "2016-01-01"
+BATCH_SIZE = 50
 
-def init_monthly_data():
-    print("--- Running init_monthly.py ---")
-    conn = duckdb.connect(database=DATABASE_PATH, read_only=False)
+def get_last_trading_day_of_month(df):
+    """Given a monthly OHLCV dataframe, resample to get last trading day per month."""
+    df = df.copy()
+    df.index = pd.to_datetime(df.index)
+    # Resample to month-end using last available trading day
+    monthly = df.resample("ME").last()
+    monthly = monthly.dropna(subset=["Close"])
+    return monthly
 
-    conn.execute("""
+def init_db(con):
+    con.execute("""
         CREATE TABLE IF NOT EXISTS monthly_ohlc (
-            symbol VARCHAR,
-            date DATE,
-            open DOUBLE,
-            high DOUBLE,
-            low DOUBLE,
-            close DOUBLE,
-            volume BIGINT,
+            symbol  VARCHAR,
+            date    DATE,
+            open    DOUBLE,
+            high    DOUBLE,
+            low     DOUBLE,
+            close   DOUBLE,
+            volume  BIGINT,
             PRIMARY KEY (symbol, date)
         )
     """)
-    print("Table 'monthly_ohlc' ensured to exist.")
+    print("Table monthly_ohlc ready.")
 
-    try:
-        stocks_df = pd.read_csv(STOCKS_CSV_PATH)
-        symbols = stocks_df["symbol"].tolist()
-        print(f"Found {len(symbols)} symbols in {STOCKS_CSV_PATH}.")
-    except FileNotFoundError:
-        print(f"Error: {STOCKS_CSV_PATH} not found. Please create it.")
-        return
+def download_and_insert(con, symbols):
+    total = len(symbols)
+    inserted_total = 0
 
-    start_date = "2016-01-01"
-    end_date = datetime.now().strftime("%Y-%m-%d")
+    for i in range(0, total, BATCH_SIZE):
+        batch = symbols[i:i + BATCH_SIZE]
+        batch_ns = [s if s.endswith(".NS") else s + ".NS" for s in batch]
+        print(f"\nBatch {i//BATCH_SIZE + 1}: downloading {len(batch)} stocks...")
 
-    # yfinance can handle multiple tickers for download
-    # However, for monthly data, it's often more robust to download individually
-    # to avoid issues with missing data for some tickers in a batch.
-    # We will still use a session for efficiency.
-
-    print(f"Downloading monthly OHLCV data from {start_date} to {end_date} for {len(symbols)} stocks...")
-    
-    all_data = []
-    for symbol in symbols:
-        print(f"Downloading monthly data for {symbol}...")
         try:
-            # Use interval="1mo" for monthly data. multi_level_index=False for flat DataFrame.
-            data = yf.download(symbol, start=start_date, end=end_date, interval="1mo", multi_level_index=False)
-            if not data.empty:
-                data = data.reset_index()
-                # Rename columns to match the DuckDB table schema
-                data.rename(columns={
-                    "Date": "date",
-                    "Open": "open",
-                    "High": "high",
-                    "Low": "low",
-                    "Close": "close",
-                    "Volume": "volume"
-                }, inplace=True)
-                data["symbol"] = symbol
-                data = data[["symbol", "date", "open", "high", "low", "close", "volume"]]
-                all_data.append(data)
-                print(f"Successfully downloaded monthly data for {symbol}.")
-            else:
-                print(f"No monthly data found for {symbol} in the specified range.")
+            raw = yf.download(
+                tickers=batch_ns,
+                start=START_DATE,
+                interval="1mo",
+                group_by="ticker",
+                auto_adjust=True,
+                threads=True,
+                progress=False
+            )
         except Exception as e:
-            print(f"Error downloading monthly data for {symbol}: {e}")
+            print(f"  Batch download failed: {e}")
+            time.sleep(5)
+            continue
 
-    if all_data:
-        combined_df = pd.concat(all_data, ignore_index=True)
-        # Ensure 'date' column is datetime and then convert to date for DuckDB
-        combined_df['date'] = pd.to_datetime(combined_df['date']).dt.date
+        rows = []
+        for sym, sym_ns in zip(batch, batch_ns):
+            try:
+                if len(batch_ns) == 1:
+                    df = raw.copy()
+                else:
+                    df = raw[sym_ns].copy()
 
-        print(f"Inserting {len(combined_df)} monthly data rows into 'monthly_ohlc'...")
-        # Use DuckDB's `INSERT OR IGNORE` to handle duplicates
-        conn.execute("BEGIN TRANSACTION")
-        conn.execute("INSERT OR IGNORE INTO monthly_ohlc SELECT * FROM combined_df")
-        conn.execute("COMMIT")
-        print("Monthly OHLCV data insertion complete (duplicates ignored).")
-    else:
-        print("No monthly data to insert.")
+                df = df.dropna(subset=["Close"])
+                if df.empty:
+                    print(f"  No data: {sym}")
+                    continue
 
-    conn.close()
-    print("--- init_monthly.py finished ---")
+                df.index = pd.to_datetime(df.index)
+                # Use last trading day of each month
+                monthly = df.resample("ME").agg({
+                    "Open": "first",
+                    "High": "max",
+                    "Low": "min",
+                    "Close": "last",
+                    "Volume": "sum"
+                }).dropna(subset=["Close"])
+
+                for date, row in monthly.iterrows():
+                    rows.append({
+                        "symbol": sym,
+                        "date": date.date(),
+                        "open": round(float(row["Open"]), 4),
+                        "high": round(float(row["High"]), 4),
+                        "low": round(float(row["Low"]), 4),
+                        "close": round(float(row["Close"]), 4),
+                        "volume": int(row["Volume"])
+                    })
+            except Exception as e:
+                print(f"  Error processing {sym}: {e}")
+                continue
+
+        if rows:
+            df_insert = pd.DataFrame(rows)
+            con.execute("""
+                INSERT OR IGNORE INTO monthly_ohlc
+                SELECT symbol, date, open, high, low, close, volume
+                FROM df_insert
+            """)
+            inserted_total += len(rows)
+            print(f"  Inserted {len(rows)} rows.")
+
+        time.sleep(2)
+
+    return inserted_total
+
+def main():
+    print(f"=== init_monthly.py started at {datetime.now()} ===")
+
+    # Load stock list
+    stocks_df = pd.read_csv(STOCKS_CSV)
+    # Expect column named 'symbol' — strip .NS if present for clean storage
+    symbols = stocks_df["symbol"].str.replace(".NS", "", regex=False).str.strip().tolist()
+    print(f"Loaded {len(symbols)} stocks from {STOCKS_CSV}")
+
+    os.makedirs("data", exist_ok=True)
+    con = duckdb.connect(DB_PATH)
+    init_db(con)
+
+    total_inserted = download_and_insert(con, symbols)
+
+    count = con.execute("SELECT COUNT(*) FROM monthly_ohlc").fetchone()[0]
+    print(f"\n=== Done. Total rows in monthly_ohlc: {count} ===")
+    con.close()
 
 if __name__ == "__main__":
-    init_monthly_data()
+    main()
