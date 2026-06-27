@@ -13,7 +13,7 @@ from datetime import datetime
 
 DB_PATH = "data/market.db"
 START_DATE = "2016-01-01"
-INDEX_TICKER = "^CRSLDX"  # Nifty 500
+INDEX_TICKER = "^CRSLDX"
 INDEX_SYMBOL = "NIFTY500"
 
 def init_db(con):
@@ -46,6 +46,10 @@ def main():
         auto_adjust=True,
         progress=False
     )
+
+    # Flatten multi-level columns if present
+    if isinstance(raw.columns, pd.MultiIndex):
+        raw.columns = raw.columns.get_level_values(0)
 
     raw = raw.dropna(subset=["Close"])
     raw.index = pd.to_datetime(raw.index)
