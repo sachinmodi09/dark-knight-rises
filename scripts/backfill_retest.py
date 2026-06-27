@@ -1,11 +1,11 @@
 """
 backfill_retest.py
 One-time script to scan ALL historical daily data against breakout_monthly
-and populate retest_history for every day price was in retest zone.
-Retest zone = within 3% ABOVE breakout_day_low (daily candle low of breakout_date).
-Multiple retest entries per stock are valid — every touch of zone is recorded.
-Invalidation is handled by mark_breakouts.py, not here.
-Run once after mark_breakouts.py completes.
+and populate retest_history for every day price touched the retest zone.
+Retest zone = daily LOW touches within 3% ABOVE breakout_day_low
+AND daily CLOSE stays above breakout_day_low (not broken).
+Multiple retest entries per stock are valid.
+Run once after enrich_breakouts.py completes.
 """
 
 import duckdb
@@ -110,7 +110,7 @@ def main():
     con = duckdb.connect(DB_PATH)
     init_retest_table(con)
 
-    # Load active breakouts that have a valid breakout_date and breakout_day_low
+    # Load active breakouts with valid breakout_date and breakout_day_low
     breakouts = con.execute("""
         SELECT symbol, breakout_month, breakout_date, breakout_day_low
         FROM breakout_monthly
@@ -129,15 +129,14 @@ def main():
     total_inserted = 0
 
     for _, bo in breakouts.iterrows():
-        sym            = bo["symbol"]
-        bo_month       = pd.to_datetime(bo["breakout_month"]).date()
-        bo_date        = pd.to_datetime(bo["breakout_date"]).date()
-        bo_day_low     = float(bo["breakout_day_low"])
+        sym        = bo["symbol"]
+        bo_month   = pd.to_datetime(bo["breakout_month"]).date()
+        bo_date    = pd.to_datetime(bo["breakout_date"]).date()
+        bo_day_low = float(bo["breakout_day_low"])
 
-        zone_low  = bo_day_low
         zone_high = bo_day_low * (1 + RETEST_ZONE_PCT)
 
-        # Load daily data AFTER breakout_date
+        # Load all daily data AFTER breakout_date
         daily_df = con.execute("""
             SELECT date, open, high, low, close, volume
             FROM daily_ohlc
@@ -153,15 +152,18 @@ def main():
 
         rows = []
         for _, day in daily_df.iterrows():
+            current_low   = float(day["low"])
             current_close = float(day["close"])
             current_date  = day["date"]
 
-            # Must be above breakout_day_low and within 3% zone
-            if not (current_low <= zone_high and current_close > breakout_day_low):
+            # Retest condition:
+            # 1. Daily LOW touched the zone (came close to breakout_day_low)
+            # 2. Daily CLOSE stayed above breakout_day_low (support held)
+            if not (current_low <= zone_high and current_close > bo_day_low):
                 continue
 
             days_since   = (current_date - bo_date).days
-            pct_from_low = round((current_close - bo_day_low) / bo_day_low * 100, 4)
+            pct_from_low = round((current_low - bo_day_low) / bo_day_low * 100, 4)
             nifty_above  = bool(nifty_map.get(current_date, True))
 
             rows.append({
@@ -170,7 +172,7 @@ def main():
                 "retest_date":                      current_date,
                 "retest_open":                      round(float(day["open"]), 4),
                 "retest_high":                      round(float(day["high"]), 4),
-                "retest_low":                       round(float(day["low"]), 4),
+                "retest_low":                       round(current_low, 4),
                 "retest_close":                     round(current_close, 4),
                 "retest_volume":                    int(day["volume"]),
                 "days_since_breakout":              days_since,
