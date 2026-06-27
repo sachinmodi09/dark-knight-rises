@@ -1,47 +1,44 @@
-name: Monthly Breakout Analysis
+name: Monthly Pipeline
 
 on:
   schedule:
-    # Runs at 10:30 UTC (4:00 PM IST) on day 28, 29, 30, or 31 of every month.
-    # The script `mark_breakouts.py` will contain logic to check if it's the
-    # last trading day of the month and exit gracefully if not.
-    - cron: '30 10 28-31 * *'
-  workflow_dispatch: # Allows manual triggering
+    - cron: '30 10 28-31 * 1-5'  # 4:00 PM IST, days 28-31, weekdays only
+  workflow_dispatch:
 
 jobs:
-  run-monthly-scripts:
+  monthly:
     runs-on: ubuntu-latest
-
     permissions:
-      contents: write # Required to commit and push changes to market.db
+      contents: write
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: Install dependencies
-      run: |
-        pip install yfinance duckdb pandas
+      - name: Install dependencies
+        run: pip install yfinance duckdb pandas
 
-    - name: Run update_monthly.py (Append this month's final candle)
-      run: python update_monthly.py
+      - name: Update monthly OHLC
+        run: python scripts/update_monthly.py
 
-    - name: Run mark_breakouts.py
-      run: python mark_breakouts.py
-      env:
-        EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }} # If mark_breakouts.py also sends emails
-        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-        EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+      - name: Mark breakouts
+        run: python scripts/mark_breakouts.py
 
-    - name: Commit market.db and any output files back to repo
-      run: |
-        git config user.email "bot@github.com"
-        git config user.name "PipelineBot"
-        git add data/market.db output/*.csv || true # Add market.db and any new CSVs, ignore if no new CSVs
-        git diff --cached --quiet || git commit -m "Monthly run: update market.db and breakouts $(date +'%Y-%m-%d')"
-        git push
+      - name: Update daily OHLC for new breakout stocks
+        run: python scripts/update_daily.py
+
+      - name: Enrich breakouts with daily candle data
+        run: python scripts/enrich_breakouts.py
+
+      - name: Commit DB
+        run: |
+          git config user.email "bot@github.com"
+          git config user.name "PipelineBot"
+          git add data/market.db
+          git diff --cached --quiet || git commit -m "Monthly update $(date +'%Y-%m')"
+          git push
