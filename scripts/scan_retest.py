@@ -150,7 +150,7 @@ def main():
             continue
 
         # Must be within zone (above breakout_day_low, within 3%)
-        if not (zone_low <= current_close <= zone_high):
+        if not (current_low <= zone_high and current_close > breakout_day_low):
             continue
 
         days_since   = (pd.to_datetime(current_date).date() - bo_date).days
