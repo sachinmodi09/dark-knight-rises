@@ -157,7 +157,7 @@ def main():
             current_date  = day["date"]
 
             # Must be above breakout_day_low and within 3% zone
-            if not (zone_low <= current_close <= zone_high):
+            if not (current_low <= zone_high and current_close > breakout_day_low):
                 continue
 
             days_since   = (current_date - bo_date).days
