@@ -1,48 +1,48 @@
-name: Daily Stock Analysis
+name: Daily Pipeline
 
 on:
   schedule:
-    # Runs Monday to Friday at 10:00 UTC (3:30 PM IST)
-    - cron: '0 10 * * 1-5'
-  workflow_dispatch: # Allows manual triggering
+    - cron: '0 10 * * 1-5'   # 3:30 PM IST Mon-Fri
+  workflow_dispatch:           # manual trigger
 
 jobs:
-  run-daily-scripts:
+  daily:
     runs-on: ubuntu-latest
-
     permissions:
-      contents: write # Required to commit and push changes to market.db
+      contents: write
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: Install dependencies
-      run: |
-        pip install yfinance duckdb pandas
+      - name: Install dependencies
+        run: pip install yfinance duckdb pandas
 
-    - name: Run update_daily.py
-      run: python update_daily.py
+      - name: Update daily OHLC
+        run: python scripts/update_daily.py
 
-    - name: Run scan_retest.py
-      run: python scan_retest.py
-      env:
-        EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
-        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-        EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+      - name: Enrich breakouts
+        run: python scripts/enrich_breakouts.py
 
-    - name: Run update_perf.py
-      run: python update_perf.py
+      - name: Scan retest
+        env:
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+        run: python scripts/scan_retest.py
 
-    - name: Commit and push changes
-      run: |
-        git config user.name "GitHub Actions Bot"
-        git config user.email "actions@github.com"
-        git add data/market.db output/*.csv || true # Add market.db and any new CSVs, ignore if no new CSVs
-        git commit -m "Automated daily market data update and analysis" || true # || true to prevent job from failing if no changes
-        git push
+      - name: Update performance
+        run: python scripts/update_perf.py
+
+      - name: Commit DB
+        run: |
+          git config user.email "bot@github.com"
+          git config user.name "PipelineBot"
+          git add data/market.db
+          git diff --cached --quiet || git commit -m "Daily update $(date +'%Y-%m-%d')"
+          git push
