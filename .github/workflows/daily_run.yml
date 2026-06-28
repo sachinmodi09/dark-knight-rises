@@ -2,14 +2,16 @@ name: Daily Pipeline
 
 on:
   schedule:
-    - cron: '30 9 * * 1-5'   
-  workflow_dispatch:           # manual trigger
+    - cron: '50 9 * * 1-5'    # 3:20 PM IST — scan and email
+    - cron: '30 10 * * 1-5'   # 4:00 PM IST — post-close final update
+  workflow_dispatch:
 
 jobs:
   daily:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    if: github.event.schedule == '50 9 * * 1-5' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout repo
@@ -36,7 +38,39 @@ jobs:
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
         run: python scripts/scan_retest.py
 
-      - name: Update performance fields
+      - name: Commit DB
+        run: |
+          git config user.email "bot@github.com"
+          git config user.name "PipelineBot"
+          git add data/market.db
+          git diff --cached --quiet || git commit -m "Daily scan $(date +'%Y-%m-%d')"
+          git push
+
+  post_close:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.event.schedule == '30 10 * * 1-5'
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install yfinance duckdb pandas
+
+      - name: Update daily OHLC with final candles
+        run: python scripts/update_daily.py
+
+      - name: Enrich breakouts post close
+        run: python scripts/enrich_breakouts.py
+
+      - name: Update performance fields on final closes
         run: python scripts/update_perf.py
 
       - name: Commit DB
@@ -44,5 +78,5 @@ jobs:
           git config user.email "bot@github.com"
           git config user.name "PipelineBot"
           git add data/market.db
-          git diff --cached --quiet || git commit -m "Daily update $(date +'%Y-%m-%d')"
+          git diff --cached --quiet || git commit -m "Post-close update $(date +'%Y-%m-%d')"
           git push
