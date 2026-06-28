@@ -2,10 +2,18 @@
 scan_retest.py
 Runs every market day at 3:45 PM IST via GitHub Actions.
 For each active breakout stock (last 12 months), checks if today's price
-is within 3% ABOVE breakout_day_low (daily candle low of breakout_date).
-Every touch of zone is a valid retest — multiple entries per stock allowed.
-Nifty 500 must be above its 50-day MA.
-Inserts into retest_history and sends email.
+touched the lower 33% of the breakout candle.
+
+Retest zone = lower 33% of breakout candle:
+  zone_low  = breakout_day_low
+  zone_high = breakout_day_low + (breakout_day_high - breakout_day_low) * 0.33
+
+Condition:
+  - Today's LOW <= zone_high (touched the zone)
+  - Today's CLOSE > breakout_day_low (support held)
+  - Nifty 500 above 50DMA
+
+Every touch is a valid retest — multiple entries per stock allowed.
 """
 
 import os
@@ -16,12 +24,12 @@ from datetime import datetime, date, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-DB_PATH        = "data/market.db"
-INDEX_SYMBOL   = "NIFTY500"
-RETEST_ZONE_PCT = 0.03
-EMAIL_SENDER   = os.environ.get("EMAIL_SENDER")
-EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
-EMAIL_RECEIVER = os.environ.get("EMAIL_RECEIVER")
+DB_PATH               = "data/market.db"
+INDEX_SYMBOL          = "NIFTY500"
+RETEST_CANDLE_FRACTION = 0.33
+EMAIL_SENDER          = os.environ.get("EMAIL_SENDER")
+EMAIL_PASSWORD        = os.environ.get("EMAIL_PASSWORD")
+EMAIL_RECEIVER        = os.environ.get("EMAIL_RECEIVER")
 
 def is_nifty500_above_50dma(con):
     df = con.execute("""
@@ -66,7 +74,6 @@ def main():
 
     con = duckdb.connect(DB_PATH)
 
-    # Ensure table exists
     con.execute("""
         CREATE TABLE IF NOT EXISTS retest_history (
             symbol                          VARCHAR,
@@ -88,7 +95,6 @@ def main():
         )
     """)
 
-    # Check index regime
     nifty_above = is_nifty500_above_50dma(con)
     if not nifty_above:
         print("Nifty 500 below 50DMA. No signals today.")
@@ -99,14 +105,16 @@ def main():
         con.close()
         return
 
-    # Load active breakouts last 12 months with valid breakout_date and breakout_day_low
+    # Load active breakouts last 12 months with full daily candle data
     breakouts = con.execute("""
-        SELECT symbol, breakout_month, breakout_date, breakout_day_low
+        SELECT symbol, breakout_month, breakout_date,
+               breakout_day_low, breakout_day_high
         FROM breakout_monthly
         WHERE status = 'active'
         AND breakout_month >= ?
         AND breakout_date IS NOT NULL
         AND breakout_day_low IS NOT NULL
+        AND breakout_day_high IS NOT NULL
     """, [cutoff]).fetchdf()
 
     print(f"Active breakouts to scan: {len(breakouts)}")
@@ -126,43 +134,45 @@ def main():
     """.format(",".join(["?" for _ in symbols])), symbols).fetchdf()
 
     today_map = today_data.set_index("symbol").to_dict("index")
-
     candidates = []
 
     for _, bo in breakouts.iterrows():
-        sym        = bo["symbol"]
-        bo_month   = pd.to_datetime(bo["breakout_month"]).date()
-        bo_date    = pd.to_datetime(bo["breakout_date"]).date()
-        bo_day_low = float(bo["breakout_day_low"])
+        sym         = bo["symbol"]
+        bo_month    = pd.to_datetime(bo["breakout_month"]).date()
+        bo_date     = pd.to_datetime(bo["breakout_date"]).date()
+        bo_day_low  = float(bo["breakout_day_low"])
+        bo_day_high = float(bo["breakout_day_high"])
 
-        zone_low  = bo_day_low
-        zone_high = bo_day_low * (1 + RETEST_ZONE_PCT)
+        candle_size = bo_day_high - bo_day_low
+        zone_low    = bo_day_low
+        zone_high   = bo_day_low + candle_size * RETEST_CANDLE_FRACTION
 
         if sym not in today_map:
             continue
 
         td            = today_map[sym]
+        current_low   = float(td["low"])
         current_close = float(td["close"])
-        current_date  = td["date"]
+        current_date  = pd.to_datetime(td["date"]).date()
 
-        # Retest must be after breakout_date
-        if pd.to_datetime(current_date).date() <= bo_date:
+        # Must be after breakout_date
+        if current_date <= bo_date:
             continue
 
-        # Must be within zone (above breakout_day_low, within 3%)
-        if not (current_low <= zone_high and current_close > breakout_day_low):
+        # Retest condition
+        if not (current_low <= zone_high and current_close > bo_day_low):
             continue
 
-        days_since   = (pd.to_datetime(current_date).date() - bo_date).days
-        pct_from_low = round((current_close - bo_day_low) / bo_day_low * 100, 4)
+        days_since   = (current_date - bo_date).days
+        pct_from_low = round((current_low - bo_day_low) / bo_day_low * 100, 4)
 
         candidates.append({
             "symbol":                           sym,
             "breakout_month":                   bo_month,
-            "retest_date":                      pd.to_datetime(current_date).date(),
+            "retest_date":                      current_date,
             "retest_open":                      round(float(td["open"]), 4),
             "retest_high":                      round(float(td["high"]), 4),
-            "retest_low":                       round(float(td["low"]), 4),
+            "retest_low":                       round(current_low, 4),
             "retest_close":                     round(current_close, 4),
             "retest_volume":                    int(td["volume"]),
             "days_since_breakout":              days_since,
@@ -189,20 +199,20 @@ def main():
             FROM df_insert
         """)
 
-    # Build and send email
+    # Build email
     lines = [
         f"Retest Scan — {today}",
         f"Nifty 500 above 50DMA: {nifty_above}",
         f"Stocks in retest zone: {len(candidates)}",
         "",
-        f"{'Symbol':<15} {'BO Month':<12} {'BO Day Low':>10} {'Price':>8} {'% from Low':>11} {'Days':>6}",
-        "-" * 70
+        f"{'Symbol':<12} {'BO Month':<12} {'BO Low':>8} {'BO High':>8} {'Zone High':>10} {'Day Low':>8} {'Close':>8} {'Days':>6}",
+        "-" * 80
     ]
     for c in sorted(candidates, key=lambda x: x["retest_pct_from_breakout_day_low"]):
         lines.append(
-            f"{c['symbol']:<15} {str(c['breakout_month']):<12} "
-            f"{bo_day_low:>10.2f} {c['retest_close']:>8.2f} "
-            f"{c['retest_pct_from_breakout_day_low']:>10.2f}% "
+            f"{c['symbol']:<12} {str(c['breakout_month']):<12} "
+            f"{bo_day_low:>8.2f} {bo_day_high:>8.2f} {zone_high:>10.2f} "
+            f"{c['retest_low']:>8.2f} {c['retest_close']:>8.2f} "
             f"{c['days_since_breakout']:>5}d"
         )
 
