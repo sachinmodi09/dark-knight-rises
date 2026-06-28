@@ -135,7 +135,7 @@ def main():
         if idx_rows:
             df_idx = pd.DataFrame(idx_rows)
             con.execute("""
-                INSERT OR IGNORE INTO index_daily_ohlc
+                INSERT OR REPLACE INTO daily_ohlc
                 SELECT symbol, date, open, high, low, close, volume
                 FROM df_idx
             """)
