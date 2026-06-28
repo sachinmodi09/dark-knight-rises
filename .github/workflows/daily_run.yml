@@ -2,7 +2,7 @@ name: Daily Pipeline
 
 on:
   schedule:
-    - cron: '50 9 * * 1-5'    # 3:20 PM IST — scan and email
+    - cron: '40 9 * * 1-5'    # 3:10 PM IST — scan and email
     - cron: '30 10 * * 1-5'   # 4:00 PM IST — post-close final update
   workflow_dispatch:
 
