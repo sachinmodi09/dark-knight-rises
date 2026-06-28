@@ -2,7 +2,7 @@ name: Daily Pipeline
 
 on:
   schedule:
-    - cron: '0 10 * * 1-5'   # 3:30 PM IST Mon-Fri
+    - cron: '30 9 * * 1-5'   
   workflow_dispatch:           # manual trigger
 
 jobs:
@@ -29,14 +29,14 @@ jobs:
       - name: Enrich breakouts
         run: python scripts/enrich_breakouts.py
 
-      - name: Scan retest
+      - name: Scan retest and send email
         env:
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
         run: python scripts/scan_retest.py
 
-      - name: Update performance
+      - name: Update performance fields
         run: python scripts/update_perf.py
 
       - name: Commit DB
