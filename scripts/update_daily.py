@@ -97,7 +97,7 @@ def main():
         if rows:
             df_insert = pd.DataFrame(rows)
             con.execute("""
-                INSERT OR IGNORE INTO daily_ohlc
+                INSERT OR REPLACE INTO daily_ohlc
                 SELECT symbol, date, open, high, low, close, volume
                 FROM df_insert
             """)
