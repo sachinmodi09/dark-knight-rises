@@ -1,5 +1,1740 @@
-symbol,company_name,market_cap
-KEI,KEI Industries,25000
-PERSISTENT,Persistent Systems,80000
-NETWEB,Netweb Technologies,8000
-HAL,Hindustan Aeronautics,200000
+symbol,market_cap,sector
+LAKPRE,5.71,Industrials
+SABEVENTS,6.26,Communication Services
+ORTEL,6.33,Communication Services
+SETUINFRA,7.29,Industrials
+ALPSINDUS,7.92,Consumer Cyclical
+ORTINGLOBE,10.25,Healthcare
+PREMIER,10.86,Industrials
+SHANTI,11.47,Consumer Defensive
+OMKARCHEM,12.37,Basic Materials
+DCMFERV,12.58,Financial Services
+EUROTEXIND,13.14,Real Estate
+KALYANI,13.81,Consumer Cyclical
+GLOBALE,13.89,Consumer Cyclical
+ARENTERP,14.84,Basic Materials
+LYPSAGEMS,14.87,Consumer Cyclical
+MTEDUCARE,15.45,Consumer Defensive
+COMPINFO,15.61,Technology
+NIRAJISPAT,15.69,Consumer Cyclical
+CREATIVEYE,15.77,Communication Services
+ANTGRAPHIC,16.59,Consumer Cyclical
+ONELIFECAP,16.88,Financial Services
+IMPEXFERRO,16.97,Basic Materials
+RADAAN,19.01,Communication Services
+BOHRAIND,22.01,Basic Materials
+GLFL,23,Financial Services
+HEADSUP,23.16,Consumer Cyclical
+ACEINTEG,24.26,Industrials
+KSHITIJPOL,25.54,Industrials
+GTECJAINX,25.63,Consumer Defensive
+SANGINITA,26.19,Basic Materials
+RETAIL,26.96,Consumer Defensive
+FEL,27.59,Consumer Cyclical
+FELDVR,28.26,Consumer Cyclical
+ANKITMETAL,28.63,Basic Materials
+FLFL,28.85,Consumer Cyclical
+ROLTA,29.03,Technology
+ROLLT,30.77,Real Estate
+CYBERMEDIA,30.8,Communication Services
+LIBAS,31.24,Consumer Cyclical
+MORARJEE,31.59,Consumer Cyclical
+DIL,32.22,Industrials
+MFML,32.46,Consumer Cyclical
+BILVYAPAR,35.44,Basic Materials
+KRIDHANINF,35.54,Basic Materials
+KHANDSE,35.85,Financial Services
+KAUSHALYA,35.93,Industrials
+SANWARIA,36.07,Consumer Defensive
+AURIGROW,36.64,Industrials
+NGIL,37.3,Consumer Defensive
+SGL,37.56,Consumer Cyclical
+LAXMICOT,37.71,Consumer Cyclical
+KANANIIND,37.79,Consumer Cyclical
+NAGREEKCAP,39.08,Financial Services
+MADHAV,39.6,Industrials
+INFOMEDIA,40.72,Financial Services
+PNC,40.93,Communication Services
+NKIND,41.54,Consumer Defensive
+ASHOKAMET,41.94,Basic Materials
+AMBICAAGAR,43.17,Consumer Defensive
+ARSHIYA,43.22,Industrials
+AKG,43.92,Industrials
+KEEPLEARN,45.46,Consumer Defensive
+MEP,46.23,Industrials
+NEXTMEDIA,46.29,Communication Services
+PEARLPOLY,46.75,Consumer Cyclical
+MOHITIND,46.77,Consumer Cyclical
+ADL,47.73,Consumer Cyclical
+AKASH,47.97,Industrials
+ABMINTLLTD,48.18,Basic Materials
+SEYAIND,48.38,Basic Materials
+21STCENMGM,48.53,Financial Services
+AKSHAR,48.82,Consumer Cyclical
+ASTRON,49.2,Basic Materials
+GANGAFORGE,49.34,Industrials
+SAGARDEEP,49.82,Basic Materials
+DNAMEDIA,51.09,Communication Services
+CALSOFT,51.45,Technology
+MADHUCON,51.5,Industrials
+COUNCODOS,51.6,Real Estate
+LCCINFOTEC,52.92,Consumer Defensive
+LASA,54.31,Healthcare
+AGSTRA,54.45,Technology
+AROGRANITE,55.81,Industrials
+HBSL,56.09,Financial Services
+JETFREIGHT,58.56,Industrials
+JAIPURKURT,58.6,Consumer Cyclical
+MASKINVEST,58.89,Financial Services
+LFIC,61.11,Financial Services
+KHAITANLTD,61.69,Consumer Cyclical
+HAVISHA,61.88,Consumer Cyclical
+RKDL,62.28,Consumer Defensive
+GOLDENTOBC,62.34,Consumer Defensive
+GSS,63.12,Technology
+CELEBRITY,63.74,Consumer Cyclical
+BIOFILCHEM,64.3,Healthcare
+CAPTRUST,65.07,Financial Services
+MALUPAPER,65.46,Basic Materials
+FLEXITUFF,65.97,Consumer Cyclical
+MITTAL,66.14,Consumer Cyclical
+DANGEE,66.21,Consumer Cyclical
+ADROITINFO,66.72,Technology
+ARCHIES,67.15,Consumer Cyclical
+SECURKLOUD,67.32,Technology
+LEXUS,67.36,Industrials
+ALAPI,67.84,Real Estate
+MANUGRAPH,68.07,Industrials
+KARMAENG,68.56,Utilities
+ICDSLTD,70.85,Real Estate
+ORIENTALTL,71.3,Industrials
+PARASPETRO,71.52,Consumer Cyclical
+BANG,72.83,Consumer Cyclical
+FMNL,72.89,Real Estate
+PALREDTEC,73.43,Technology
+ATLASCYCLE,73.54,Consumer Cyclical
+NIBL,74.09,Industrials
+BALKRISHNA,74.65,Consumer Cyclical
+GAYAHWS,75.86,Industrials
+AHLADA,76.21,Industrials
+GATECH,78.14,Financial Services
+AGRITECH,78.27,Consumer Defensive
+ROML,78.44,Consumer Defensive
+GATECHDVR,78.83,Financial Services
+DAMODARIND,82.93,Consumer Cyclical
+NOIDATOLL,83.04,Industrials
+AGROPHOS,83.83,Basic Materials
+DELTAMAGNT,84.91,Industrials
+BLBLIMITED,85.59,Financial Services
+HYBRIDFIN,85.73,Financial Services
+ANMOL,86.28,Energy
+BLUECOAST,86.96,Consumer Cyclical
+ORIENTLTD,88.28,Consumer Cyclical
+AKI,88.97,Consumer Cyclical
+AJOONI,89.22,Consumer Defensive
+PRAKASHSTL,90.3,Basic Materials
+PRUDMOULI,90.63,Consumer Defensive
+DBSTOCKBRO,90.76,Financial Services
+NARMADA,90.93,Basic Materials
+ALKALI,91.1,Basic Materials
+AAKASH,91.63,Energy
+NAGREEKEXP,92.94,Consumer Cyclical
+ENERGYDEV,94.95,Utilities
+BANKA,96.6,Industrials
+BANARBEADS,96.97,Consumer Cyclical
+MITCON,97.23,Industrials
+PRITI,98.04,Consumer Cyclical
+HISARMETAL,98.28,Basic Materials
+NORBTEAEXP,98.43,Consumer Defensive
+PATINTLOG,99.23,Industrials
+HGM,99.23,Technology
+IL&FSTR,99.67,Industrials
+ACCURACY,101.03,Industrials
+MANGALAM,102.04,Healthcare
+BVCL,102.33,Basic Materials
+DHRUV,102.72,Industrials
+MOTOGENFIN,103.17,Real Estate
+CEREBRAINT,103.26,Technology
+GOYALALUM,104.21,Basic Materials
+GLOBE,105.4,Consumer Cyclical
+ATAM,105.52,Industrials
+HILTON,105.72,Industrials
+CTE,107.02,Technology
+PIONEEREMB,107.98,Consumer Cyclical
+LPDC,109.33,Real Estate
+CINEVISTA,109.65,Communication Services
+AMDIND,110.44,Consumer Cyclical
+KAKATCEM,111.25,Basic Materials
+BHANDARI,111.38,Consumer Cyclical
+DIGIDRIVE,112.79,Consumer Cyclical
+JHS,113.51,Consumer Defensive
+AAATECH,116.02,Technology
+KOHINOOR,116.59,Consumer Defensive
+GROBTEA,116.92,Consumer Defensive
+ORCHASP,118.23,Technology
+RELCHEMQ,118.73,Consumer Cyclical
+LOYALTEX,119.07,Consumer Cyclical
+MOKSH,119.17,Consumer Cyclical
+RAJMET,119.44,Basic Materials
+PALASHSECU,119.92,Consumer Defensive
+OBCL,120.05,Industrials
+AKSHOPTFBR,123.81,Technology
+ODIGMA,123.96,Communication Services
+PAR,124.04,Healthcare
+SELMC,125.59,Consumer Cyclical
+FIBERWEB,125.62,Consumer Cyclical
+REGENCERAM,125.76,Industrials
+RAJSREESUG,126.01,Consumer Defensive
+BAIDFIN,126.79,Financial Services
+SECMARK,130.67,Industrials
+BALPHARMA,131.59,Healthcare
+SEMAC,132.72,Industrials
+SADBHIN,134.2,Industrials
+JOCIL,134.54,Basic Materials
+HDIL,134.63,Real Estate
+CUBEXTUB,135.03,Basic Materials
+MCL,136.42,Basic Materials
+LAMBODHARA,136.76,Consumer Cyclical
+MAHAPEXLTD,138.59,Financial Services
+AUSOMENT,138.92,Financial Services
+OSWALSEEDS,141.23,Basic Materials
+LOVABLE,141.24,Consumer Cyclical
+BAGFILMS,141.48,Communication Services
+RELIABLE,142.22,Technology
+LAGNAM,143.61,Consumer Cyclical
+BEARDSELL,143.63,Industrials
+KEYFERV,143.71,Financial Services
+SHAHALLOYS,144.07,Basic Materials
+ARTNIRMAN,144.72,Real Estate
+GTL,145.18,Communication Services
+COMPUSOFT,146.21,Consumer Defensive
+RPPL,146.69,Consumer Cyclical
+SALONA,146.95,Consumer Cyclical
+BTML,147.29,Communication Services
+HECPROJECT,148.95,Industrials
+MUKTAARTS,151.48,Communication Services
+HPIL,151.54,Basic Materials
+INDIANCARD,153.15,Consumer Cyclical
+INVENTURE,153.3,Financial Services
+KREBSBIO,154.37,Healthcare
+DUCON,155.02,Industrials
+AIROLAM,155.26,Consumer Cyclical
+GVPTECH,158.28,Technology
+CROWN,158.68,Industrials
+KESORAMIND,159.68,Basic Materials
+ISFT,159.79,Consumer Cyclical
+RKEC,160.62,Industrials
+SAMBHAAV,160.93,Communication Services
+ALPHAGEO,163.18,Energy
+GANGESSECU,164.18,Consumer Defensive
+BHARATGEAR,164.47,Consumer Cyclical
+MAGNUM,164.57,Basic Materials
+LANCORHOL,164.68,Real Estate
+LATTEYS,165.24,Industrials
+MAHESHWARI,165.98,Industrials
+MODTHREAD,167.15,Consumer Cyclical
+RSSOFTWARE,168.29,Technology
+HINDCON,168.31,Basic Materials
+IVP,168.88,Basic Materials
+DTIL,173.4,Consumer Defensive
+CORALFINAC,174.55,Real Estate
+RUCHINFRA,174.89,Industrials
+AVROIND,176.77,Consumer Cyclical
+DCM,177.42,Industrials
+RHFL,178.02,Financial Services
+INDBANK,178.07,Financial Services
+AARVI,178.32,Industrials
+ISHANCH,180.06,Basic Materials
+LAL,180.34,Consumer Cyclical
+ARVEE,180.73,Basic Materials
+SAMPANN,183.96,Basic Materials
+ESSENTIA,186.85,Consumer Defensive
+ALPA,187.96,Healthcare
+AARTECH,188.08,Industrials
+BRNL,190.4,Industrials
+NITIRAJ,195.46,Technology
+EQUIPPP,195.65,Basic Materials
+NIRAJ,195.68,Industrials
+INDTERRAIN,195.82,Consumer Cyclical
+BSL,197.41,Consumer Cyclical
+MARALOVER,197.65,Consumer Cyclical
+EMMBI,197.73,Consumer Cyclical
+DGCONTENT,198.11,Communication Services
+MANAKALUCO,200.11,Basic Materials
+INDOWIND,200.54,Utilities
+ARCHIDPLY,201.82,Basic Materials
+GULFPETRO,202,Energy
+ASPINWALL,203.2,Consumer Defensive
+CURAA,204.71,Technology
+SADBHAV,206.57,Industrials
+JMA,207.1,Consumer Cyclical
+INCREDIBLE,208.81,Basic Materials
+AERONEU,210.39,Consumer Cyclical
+ANIKINDS,210.95,Consumer Defensive
+BASML,212.27,Consumer Cyclical
+RAJTV,212.64,Communication Services
+PKTEA,212.81,Consumer Defensive
+PLAZACABLE,214.52,Industrials
+PRAENG,215.14,Real Estate
+RANASUG,220.06,Consumer Defensive
+EXCEL,222.89,Industrials
+KRITIKA,224.47,Basic Materials
+NATCAPSUQ,224.71,Healthcare
+CPCAP,224.81,Financial Services
+CHEMBOND,224.84,Basic Materials
+DEVIT,225.85,Technology
+MHLXMIRU,226.04,Consumer Cyclical
+AKSHARCHEM,226.19,Basic Materials
+PRAXIS,227.4,Consumer Cyclical
+NECCLTD,227.6,Industrials
+BALAXI,229.94,Healthcare
+CENTEXT,232.47,Basic Materials
+AMJLAND,234.07,Real Estate
+ROSSELLIND,235.23,Industrials
+DHARAN,235.54,Real Estate
+ABAN,238.13,Energy
+CORDSCABLE,239.85,Industrials
+SETCO,240.63,Consumer Cyclical
+IVC,241.49,Financial Services
+GENCON,241.97,Industrials
+DELPHIFX,245.04,Financial Services
+MEGASTAR,245.32,Consumer Defensive
+SAKHTISUG,249.7,Consumer Defensive
+AHLEAST,250.09,Consumer Cyclical
+LOTUSEYE,250.97,Healthcare
+KAMOPAINTS,251.17,Basic Materials
+SCPL,254.24,Consumer Defensive
+MKPL,254.52,Consumer Defensive
+PONNIERODE,254.81,Consumer Defensive
+SADHNANIQ,255.95,Basic Materials
+REPL,256.72,Industrials
+KMSUGAR,257.32,Consumer Defensive
+AAREYDRUGS,258.85,Healthcare
+KOTARISUG,259.69,Consumer Defensive
+KALYANIFRG,259.72,Consumer Cyclical
+DRCSYSTEMS,261.46,Technology
+OMAXAUTO,264.42,Consumer Cyclical
+PRITIKAUTO,265.92,Industrials
+DIAMINESQ,271.37,Basic Materials
+GILLANDERS,272.54,Consumer Defensive
+PIGL,272.58,Industrials
+MURUDCERA,275.06,Industrials
+SAHYADRI,277.27,Industrials
+COASTCORP,277.73,Consumer Defensive
+CCHHL,278.54,Consumer Cyclical
+NAVKARURB,280.62,Basic Materials
+DCMNVL,281.66,Consumer Cyclical
+RVTH,282.31,Industrials
+JAYSREETEA,283,Consumer Defensive
+RADIOCITY,283.43,Communication Services
+NURECA,286.79,Healthcare
+INDOUS,288.36,Basic Materials
+DJML,288.75,Industrials
+PODDARMENT,289.64,Basic Materials
+NDLVENTURE,289.84,Communication Services
+PILITA,289.98,Consumer Cyclical
+AFFORDABLE,290.49,Industrials
+A2ZINFRA,290.77,Industrials
+AXITA,292.13,Consumer Cyclical
+AIRAN,293.55,Technology
+CINELINE,295.71,Communication Services
+ALMONDZ,297.26,Financial Services
+NAGAFERT,297.84,Basic Materials
+ATALREAL,298.83,Industrials
+GOLDTECH,303.74,Technology
+INTENTECH,307.11,Technology
+ELGIRUBCO,308.46,Consumer Cyclical
+SALSTEEL,311.01,Basic Materials
+GLOBALVECT,313.26,Industrials
+OMFREIGHT,315.71,Industrials
+BROOKS,316.65,Healthcare
+HITECHCORP,318.83,Consumer Cyclical
+NATHBIOGEN,323.95,Basic Materials
+BYKE,324.44,Consumer Cyclical
+ALANKIT,327.53,Technology
+EXXARO,330.64,Industrials
+MODIRUBBER,333.69,Real Estate
+GLOBAL,334.73,Consumer Defensive
+AUTOIND,335.79,Consumer Cyclical
+LYKALABS,336.33,Healthcare
+SHANKARA,337.95,Consumer Cyclical
+ASAHISONG,338.1,Basic Materials
+MAWANASUG,341.37,Consumer Defensive
+NECLIFE,342.03,Healthcare
+SHAH,342.58,Basic Materials
+AVG,343.06,Industrials
+APOLSINHOT,343.64,Industrials
+NIPPOBATRY,344.16,Industrials
+KANORICHEM,345.18,Basic Materials
+AFIL,346.94,Financial Services
+PPAP,347.98,Consumer Cyclical
+3IINFOLTD,349.4,Technology
+ATLANTAA,349.8,Industrials
+RVHL,351.21,Real Estate
+KCPSUGIND,351.27,Consumer Defensive
+PIRISYS,356.51,Technology
+OSIAHYPER,357.45,Consumer Cyclical
+GEEKAYWIRE,360.38,Industrials
+OILCOUNTUB,364.65,Energy
+BALAJEE,365.03,Consumer Cyclical
+BAFNAPH,365.79,Healthcare
+BPL,368.98,Technology
+MARKOLINES,370.61,Industrials
+DPWIRES,371.8,Industrials
+KAVDEFENCE,373.07,Technology
+HARRMALAYA,373.09,Consumer Defensive
+RCOM,375.9,Communication Services
+MANAKSTEEL,378.26,Basic Materials
+RACE,378.51,Industrials
+IL&FSENGG,380.64,Industrials
+MANOMAY,380.81,Consumer Cyclical
+APCL,382.27,Basic Materials
+MAHEPC,382.47,Industrials
+PASUPTAC,382.65,Consumer Cyclical
+DYNPRO,385.47,Basic Materials
+LOKESHMACH,385.66,Industrials
+GINNIFILA,386.01,Consumer Cyclical
+MANCREDIT,386.13,Financial Services
+FCSSOFT,386.36,Technology
+DEVX,387.08,Real Estate
+EMAMIREAL,390.08,Real Estate
+NDGL,390.1,Financial Services
+DCI,394.56,Technology
+GOKUL,397.56,Consumer Defensive
+AARTISURF,399.19,Basic Materials
+RUCHIRA,399.95,Basic Materials
+MEDICO,400.15,Healthcare
+NILAINFRA,402.94,Real Estate
+BWRAS,403.36,Consumer Cyclical
+BHAGYANGR,404.93,Basic Materials
+BBTCL,408.81,Consumer Cyclical
+NOVAAGRI,417.66,Basic Materials
+ASHIMASYN,417.82,Real Estate
+GOACARBON,418.71,Basic Materials
+ASMS,422.75,Technology
+GSLSU,424.07,Basic Materials
+GENUSPAPER,424.77,Basic Materials
+FILATFASH,425.04,Consumer Cyclical
+RHL,425.46,Consumer Cyclical
+BEDMUTHA,425.82,Basic Materials
+CHEMBONDCH,426.69,Basic Materials
+HPAL,427.03,Basic Materials
+GLOBECIVIL,430.87,Industrials
+RUBFILA,431.97,Basic Materials
+BCONCEPTS,433.15,Consumer Cyclical
+IITL,436.2,Financial Services
+ORIENTBELL,437.09,Industrials
+KRITINUT,437.49,Consumer Defensive
+DENORA,437.72,Industrials
+MANORG,438.75,Basic Materials
+PARI,439.31,Real Estate
+RAMANEWS,439.62,Consumer Defensive
+MANAKSIA,440.06,Industrials
+ORIENTCER,445.9,Basic Materials
+JKIPL,448.16,Industrials
+PREMIERPOL,453.54,Basic Materials
+AARON,457.72,Industrials
+NRL,461.66,Industrials
+PLASTIBLEN,463.6,Basic Materials
+KHADIM,468.83,Consumer Cyclical
+SAKUMA,469.05,Consumer Defensive
+S&SPOWER,473.64,Industrials
+CLEDUCATE,477.17,Consumer Defensive
+DICIND,477.74,Basic Materials
+BIRLACABLE,477.96,Technology
+ALBERTDAVD,478.32,Healthcare
+KANPRPLA,480.14,Consumer Cyclical
+NDL,481.45,Consumer Cyclical
+MEDICAMEQ,482.41,Healthcare
+MUTHOOTCAP,484.13,Financial Services
+AMANTA,485.06,Healthcare
+NAHARCAP,486.93,Financial Services
+MGEL,491.04,Consumer Defensive
+REMSIND,492.07,Consumer Cyclical
+HCL-YS,496.14,Technology
+AVONMORE,498.34,Financial Services
+NAHARINDUS,498.99,Consumer Cyclical
+MODISONLTD,499.63,Industrials
+CYBERTECH,502.29,Technology
+EUROBOND,509.36,Industrials
+DONEAR,513.14,Consumer Cyclical
+ARIES,514.45,Basic Materials
+MIRZAINT,518.39,Consumer Cyclical
+MUNJALSHOW,522.09,Consumer Cyclical
+PTL,524.21,Real Estate
+PRECOT,526.14,Consumer Cyclical
+DBOL,528,Consumer Defensive
+PAVNAIND,530.91,Consumer Cyclical
+KOTHARIPRO,532.29,Industrials
+DAVANGERE,539.11,Consumer Defensive
+ADVANIHOTR,542.42,Consumer Cyclical
+LIBERTSHOE,547.5,Consumer Cyclical
+HILINFRA,553.54,
+ORIENTPPR,553.59,Basic Materials
+MAZDA,553.59,Industrials
+LORDSCHLO,554.29,Basic Materials
+GVKPIL,555.88,Utilities
+IRISDOREME,556.92,Consumer Cyclical
+MONEYBOXX,559.5,Financial Services
+KRONOX,562.27,Basic Materials
+RBZJEWEL,562.56,Consumer Cyclical
+GCSL,562.7,Financial Services
+RADIANTCMS,565.13,Industrials
+GUJAPOLLO,567.18,Industrials
+FOCUS,573.94,Consumer Cyclical
+EIFFL,576.82,Consumer Defensive
+PRIMO,576.85,Basic Materials
+BMWVENTLTD,582.29,Basic Materials
+KAPSTON,583.36,Industrials
+MOLDTECH,583.53,Industrials
+PYRAMID,583.85,Consumer Cyclical
+HMVL,586.87,Communication Services
+ORBTEXP,587.7,Consumer Cyclical
+COFINVT,590.57,Financial Services
+FOODSIN,592.96,Consumer Defensive
+BELLACASA,593.52,Consumer Cyclical
+RPPINFRA,595.2,Industrials
+HERCULES,596.97,Industrials
+SBGLP,598.83,Real Estate
+EMAMIPAP,603.84,Basic Materials
+DIGISPICE,604.65,Technology
+COMSYN,605.63,Consumer Cyclical
+BORANA,606.79,Consumer Cyclical
+CPEDU,608.05,Consumer Defensive
+GANESHBE,618.89,Basic Materials
+INTLCONV,621.3,Industrials
+KRITI,625.92,Industrials
+PANACHE,626.56,Technology
+PAKKA,629.27,Basic Materials
+APTECHT,631.24,Consumer Defensive
+SARVESHWAR,632.79,Consumer Defensive
+SCHAND,634.18,Communication Services
+CSLFINANCE,635.38,Financial Services
+KAYA,640.92,Consumer Defensive
+MBLINFRA,643.83,Industrials
+ASIANHOTNR,644.97,Consumer Cyclical
+HTMEDIA,645.61,Communication Services
+SHALPAINTS,647.51,Basic Materials
+IRIS,648.2,Technology
+ENIL,658.61,Communication Services
+AHCL,659.03,Healthcare
+RKSWAMY,663.67,Communication Services
+OCCLLTD,669.44,Basic Materials
+IGCL,673.08,Basic Materials
+ACL,674.8,Basic Materials
+CHEVIOT,676.58,Consumer Cyclical
+DREAMFOLKS,677.43,Industrials
+MANBA,679.94,Financial Services
+HINDCOMPOS,684.99,Consumer Cyclical
+MWL,689.17,Basic Materials
+MCLEODRUSS,689.46,Consumer Defensive
+MENONBE,691.92,Consumer Cyclical
+GLOSTERLTD,691.99,Consumer Cyclical
+RAMAPHO,696.04,Basic Materials
+RSWM,698,Consumer Cyclical
+JAYAGROGN,698.69,Basic Materials
+MMP,699.59,Basic Materials
+KILITCH,701.68,Healthcare
+PPL,705.59,Industrials
+HARDWYN,708.72,Industrials
+GLOTTIS,712.52,Industrials
+GEECEE,715.27,Real Estate
+RITCO,720.86,Industrials
+DBEIL,721.58,Industrials
+BIGBLOC,724.3,Industrials
+ONWARDTEC,724.4,Technology
+RUBYMILLS,727.89,Consumer Cyclical
+NILASPACES,730.67,Real Estate
+NAHARPOLY,732.21,Consumer Cyclical
+HLVLTD,733.1,Consumer Cyclical
+MUFTI,737.7,Consumer Cyclical
+GHCLTEXTIL,741.08,Consumer Cyclical
+20MICR,742.45,Basic Materials
+APEX,742.59,Consumer Defensive
+PATELRMART,743.56,Consumer Cyclical
+LINC,749.21,Industrials
+KSOLVES,749.89,Technology
+NAHARSPING,750.27,Consumer Cyclical
+MUKKA,755.1,Consumer Defensive
+PARSVNATH,755.47,Real Estate
+ESSARSHPNG,755.65,Industrials
+NBIFIN,761.02,Financial Services
+GFLLIMITED,762.91,Financial Services
+BODALCHEM,763.47,Basic Materials
+SATIA,763.8,Basic Materials
+KAMDHENU,768.69,Basic Materials
+MAGADSUGAR,770.95,Consumer Defensive
+NRAIL,771.72,Basic Materials
+SAKAR,777.9,Healthcare
+AMBIKCO,778.39,Consumer Cyclical
+REPRO,780.99,Industrials
+DMCC,782.99,Basic Materials
+BESTAGRO,783.7,Basic Materials
+ONMOBILE,784.86,Communication Services
+KECL,788.93,Industrials
+SARLAPOLY,790.44,Consumer Cyclical
+RATNAVEER,790.48,Basic Materials
+RUSHIL,799.27,Consumer Cyclical
+KOPRAN,800.95,Healthcare
+MAANALU,801.94,Basic Materials
+DISHTV,802.79,Communication Services
+LAXMIINDIA,823.48,Financial Services
+NYS,825.99,Technology
+KRYSTAL,829.17,Industrials
+DWARKESH,831.94,Consumer Defensive
+INDOBORAX,837.58,Basic Materials
+KOTHARIPET,839.8,Basic Materials
+EMKAY,840.62,Financial Services
+ORICONENT,840.98,Consumer Cyclical
+ASAL,842.4,Consumer Cyclical
+JITFINFRA,843.05,Industrials
+AVADHSUGAR,844.51,Consumer Defensive
+KABRAEXTRU,846.34,Industrials
+MACPOWER,846.6,Industrials
+SGIL,846.86,Industrials
+ELDEHSG,849.03,Real Estate
+INDSWFTLAB,849.95,Healthcare
+ONEPOINT,859.81,Industrials
+ATL,860.28,Industrials
+DHUNINV,867,Financial Services
+ACLGATI,870.98,Industrials
+CHEMFAB,871.04,Basic Materials
+DHAMPURSUG,873.93,Consumer Defensive
+BLAL,876.75,Financial Services
+ADVANCE,881.68,Basic Materials
+MINDTECK,881.89,Technology
+KAMATHOTEL,884.41,Consumer Cyclical
+SANDESH,889.39,Communication Services
+MALLCOM,896.1,Industrials
+COFFEEDAY,899.72,Consumer Cyclical
+CHEMCON,902.94,Basic Materials
+LIKHITHA,904.51,Energy
+ANUHPHR,906.94,Healthcare
+ARFIN,911.1,Basic Materials
+NCLIND,912.25,Basic Materials
+ABCOTS,927.52,Consumer Cyclical
+BIRLAMONEY,927.92,Financial Services
+NGLFINE,930.9,Healthcare
+PVP,931.2,Industrials
+MUNJALAU,931.62,Consumer Cyclical
+MVGJL,933.88,Consumer Cyclical
+EVERESTIND,946,Industrials
+KUANTUM,947.5,Basic Materials
+GICHSGFIN,949.66,Financial Services
+GULPOLY,951.03,Basic Materials
+SASTASUNDR,954,Healthcare
+INDOAMIN,957.07,Basic Materials
+ARROWGREEN,957.62,Consumer Cyclical
+SCODATUBES,960.94,Basic Materials
+BHAGERIA,961.1,Basic Materials
+AEROENTER,961.45,Basic Materials
+GALAPREC,963.73,Industrials
+HEXATRADEX,972.31,Financial Services
+MAHASTEEL,977.52,Basic Materials
+FAIRCHEMOR,978.51,Basic Materials
+PRIMESECU,980.26,Financial Services
+SEJALLTD,981.6,Industrials
+OSWALAGRO,981.79,Real Estate
+CREATIVE,986.67,Technology
+REGAAL,987.48,Consumer Defensive
+5PAISA,989.04,Financial Services
+RADHIKAJWE,992.03,Consumer Cyclical
+INNOVANA,994.06,Technology
+JAYBARMARU,995.4,Consumer Cyclical
+CEWATER,999.01,Utilities
+CENTENKA,1004.03,Consumer Cyclical
+PROSTARM,1005.05,Industrials
+DHARMAJ,1009.2,Basic Materials
+OSWALGREEN,1013.03,Financial Services
+ADSL,1015.36,Technology
+KOKUYOCMLN,1017.98,Industrials
+AFSL,1018.25,Financial Services
+GKWLIMITED,1025.4,Industrials
+PVSL,1037,Consumer Cyclical
+NDTV,1038.07,Communication Services
+AYMSYNTEX,1039.93,Consumer Cyclical
+JPOLYINVST,1040.1,Financial Services
+AVTNPL,1042.54,Basic Materials
+KELLTONTEC,1055.59,Technology
+LINCOLN,1057.07,Healthcare
+PROZONER,1057.69,Real Estate
+ELIN,1059.28,Industrials
+EIMCOELECO,1062.42,Industrials
+DHANBANK,1067.68,Financial Services
+MIRCELECTR,1069.76,Consumer Cyclical
+CCCL,1072.6,Industrials
+GANDHITUBE,1079.1,Industrials
+CREST,1082.47,Financial Services
+ESTER,1082.65,Basic Materials
+MAMATA,1085.7,Industrials
+DENTA,1091.76,Industrials
+BIL,1093.24,Consumer Cyclical
+KRISHIVAL,1094.58,Consumer Defensive
+MATRIMONY,1097.46,Communication Services
+GRPLTD,1100.27,Consumer Cyclical
+PDMJEPAPER,1100.38,Basic Materials
+ANDHRSUGAR,1101.9,Basic Materials
+MAXIND,1110.68,Healthcare
+NELCAST,1113.01,Industrials
+SBC,1118.55,Industrials
+ARIHANTCAP,1122.24,Financial Services
+OMINFRAL,1126.37,Industrials
+FABTECH,1135.32,Healthcare
+DPSCLTD,1136.41,Utilities
+SAURASHCEM,1137,Basic Materials
+GANESHCP,1145.3,Consumer Defensive
+INDOFARM,1149.01,Industrials
+RICOAUTO,1149.52,Consumer Cyclical
+PENINLAND,1151.1,Real Estate
+BCLIND,1155.56,Consumer Defensive
+ICEMAKE,1162.49,Industrials
+ABINFRA,1163.24,Industrials
+CONTROLPR,1178.03,Industrials
+KROSS,1178.85,Consumer Cyclical
+DSSL,1178.94,Technology
+DVL,1183.31,Financial Services
+RNBDENIMS,1188.74,Consumer Cyclical
+GTPL,1193.12,Communication Services
+HEUBACHIND,1193.57,Basic Materials
+IZMO,1194.53,Technology
+BLUSPRING,1200.53,Industrials
+HERANBA,1204.59,Basic Materials
+AURUM,1210.54,Real Estate
+AMNPLST,1215.97,Basic Materials
+GEMAROMA,1223.18,Basic Materials
+BOROSCI,1225.25,Consumer Cyclical
+BAJAJINDEF,1230.98,Industrials
+OAL,1232.23,Basic Materials
+KHAICHEM,1235.35,Basic Materials
+GPTHEALTH,1240.01,Healthcare
+FAZE3Q,1240.73,Consumer Cyclical
+IFBAGRO,1246.67,Consumer Defensive
+ELECTHERM,1257.93,Basic Materials
+PASHUPATI,1259.48,Consumer Cyclical
+MANALIPETC,1265.57,Basic Materials
+RACLGEAR,1265.8,Consumer Cyclical
+MEIL,1284.39,Industrials
+ECOSMOBLTY,1285.44,Industrials
+IGPL,1286,Basic Materials
+AGARIND,1287.27,Basic Materials
+BUTTERFLY,1288.62,Consumer Cyclical
+IRMENERGY,1291.07,Utilities
+CAPITALSFB,1292.24,Financial Services
+BSHSL,1304.27,Basic Materials
+ARISINFRA,1308.37,Industrials
+PARACABLES,1319.23,Technology
+MADRASFERT,1323.93,Basic Materials
+ROTO,1328.54,Industrials
+GANDHAR,1331.06,Energy
+GNA,1332.57,Consumer Cyclical
+JARO,1339.46,Consumer Defensive
+ROHLTD,1344.79,Consumer Cyclical
+ATULAUTO,1345.52,Consumer Cyclical
+MICEL,1347.71,Technology
+BLKASHYAP,1349.22,Industrials
+RAJRILTD,1352.28,Consumer Cyclical
+CIFL,1368.66,Financial Services
+IMPAL,1369.8,Consumer Cyclical
+APOLLOPIPE,1371.4,Industrials
+DIFFNKG,1371.86,Industrials
+BALAJITELE,1376.99,Communication Services
+GPTINFRA,1379.37,Industrials
+HESTERBIO,1379.39,Healthcare
+RIIL,1379.61,Industrials
+CONFIPET,1387.47,Energy
+IVALUE,1389.63,Technology
+LGHL,1389.82,Consumer Cyclical
+GODAVARIB,1397.62,Basic Materials
+ALLDIGI,1400.22,Industrials
+JINDALPHOT,1401.54,Financial Services
+BHARATSE,1404.33,Consumer Cyclical
+CLSEL,1408.4,Consumer Defensive
+HARIOMPIPE,1408.86,Basic Materials
+DOLATALGO,1416.43,Financial Services
+EXCELINDUS,1422,Basic Materials
+BAJAJHCARE,1426.14,Healthcare
+NIITLTD,1435.42,Consumer Defensive
+QUADFUTURE,1435.8,Industrials
+RGL,1437.03,Consumer Cyclical
+MEGASOFT,1437.23,Healthcare
+INFOBEAN,1440.94,Technology
+DECCANCE,1448.52,Basic Materials
+BIRLANU,1451.23,Industrials
+MONTECARLO,1452.29,Consumer Cyclical
+OMAXE,1468.11,Real Estate
+HITECHGEAR,1469.55,Consumer Cyclical
+ESAFSFB,1472.32,Financial Services
+ASIANTILES,1478.67,Industrials
+MMFL,1482.47,Industrials
+JAGSNPHARM,1485.91,Healthcare
+DCMSRIND,1488,Consumer Defensive
+CENTRUM,1490.55,Financial Services
+AWHCL,1491.26,Industrials
+SALZERELEC,1501.97,Industrials
+BHARATWIRE,1505.77,Basic Materials
+PLATIND,1507.69,Basic Materials
+ASIANENE,1509.67,Energy
+ASTEC,1523.62,Basic Materials
+SHANTIGOLD,1526.78,Consumer Cyclical
+HIMATSEIDE,1526.89,Consumer Cyclical
+DOLPHIN,1527.78,Energy
+HMAAGRO,1530.85,Consumer Defensive
+BLSE,1542.83,Industrials
+ALICON,1550.35,Industrials
+ANDHRAPAP,1555.21,Basic Materials
+RUPA,1557.57,Consumer Cyclical
+RAJOOENG,1561.35,Industrials
+DEN,1567.61,Communication Services
+IGARASHI,1570.13,Consumer Cyclical
+JYOTISTRUC,1572.97,Industrials
+GREENPOWER,1580.07,Utilities
+RISHABH,1580.9,Technology
+JAGRAN,1582.13,Communication Services
+EXPLEOSOL,1583.4,Technology
+SESHAPAPER,1593.1,Basic Materials
+BLISSGVS,1607.74,Healthcare
+DLINKINDIA,1607.83,Technology
+RAMASTEEL,1614.77,Basic Materials
+IKIO,1616.16,Technology
+FINKURVE,1624.73,Financial Services
+PANAMAPET,1632.12,Energy
+PNBGILTS,1647.15,Financial Services
+SANGHIIND,1649.64,Basic Materials
+JINDRILL,1651.68,Energy
+SALASAR,1658.8,Basic Materials
+EKC,1661.68,Industrials
+MUFIN,1663.46,Financial Services
+MASTERTR,1672.16,Financial Services
+JNKINDIA,1673.08,Industrials
+MOTIS,1673.58,Consumer Cyclical
+LAXMIDENTL,1707.67,Healthcare
+QUICKHEAL,1722.74,Technology
+INDORAMA,1735.1,Consumer Cyclical
+JGCHEM,1737.12,Basic Materials
+SATIN,1738.36,Financial Services
+ARMANFIN,1747.3,Financial Services
+DEEDEV,1747.91,Industrials
+RHETAN,1763.47,Basic Materials
+PUNJABCHEM,1776.18,Basic Materials
+DAMCAPITAL,1776.41,Financial Services
+STAR,1779.62,Basic Materials
+PRECAM,1782.41,Consumer Cyclical
+INDOTECH,1790,Industrials
+NIBE,1793.52,Industrials
+MANAKCOAT,1797.25,Industrials
+ARIHANTSUP,1800.07,Real Estate
+NAVKARCORP,1801.11,Industrials
+GOCLCORP,1816.34,Basic Materials
+DREDGECORP,1819.6,Industrials
+IFGLEXPOR,1820.99,Basic Materials
+BFINVEST,1828.95,Financial Services
+INDIANHUME,1834.64,Industrials
+APCOTEXIND,1842.05,Basic Materials
+DCW,1855.64,Basic Materials
+GTLINFRA,1857.32,Technology
+ORIENTTECH,1882.41,Technology
+MSPL,1900.94,Basic Materials
+NITPIN,1911.76,Consumer Cyclical
+DIVGIITTS,1912.96,Consumer Cyclical
+GARUDA,1916.38,Industrials
+EXICOM,1933.63,Industrials
+NELCO,1934.43,Technology
+HUHTAMAKI,1944.43,Consumer Cyclical
+ASALCBR,1957.66,Consumer Defensive
+SEPC,1962.04,Industrials
+RAJRATAN,1968.67,Basic Materials
+PIXTR,1978.52,Industrials
+ANTELOPUS,1982.28,Energy
+ADOR,1987.66,Industrials
+ALLTIME,1990.45,Consumer Defensive
+RMDRIP,1994.9,Industrials
+DYCL,2004.7,Industrials
+HINDOILEXP,2019.36,Energy
+SABTNL,2023.37,Communication Services
+MUKANDLTD,2023.82,Basic Materials
+DOLLAR,2028.16,Consumer Cyclical
+MOL,2054.36,Basic Materials
+MOBIKWIK,2055.35,Technology
+ECTICID,2067.1,Basic Materials
+ACCELYA,2068.25,Technology
+DELTACORP,2071.74,Consumer Cyclical
+GEOJITFSL,2073.58,Financial Services
+GVPIL,2087.75,Industrials
+KERNEX,2091.74,Technology
+SASKEN,2108.33,Technology
+IDEAFORGE,2117.71,Technology
+AMRUTANJAN,2145.19,Healthcare
+MANGLMCEM,2148.5,Basic Materials
+GENESYS,2151.02,Technology
+CANTABIL,2172.16,Consumer Cyclical
+SEAMECLTD,2177.52,Industrials
+IPL,2188.91,Basic Materials
+RANEHOLDIN,2190.22,Consumer Cyclical
+MAYURUNIQ,2207.61,Consumer Cyclical
+BAJEL,2214.86,Utilities
+ORIENTHOT,2217.84,Consumer Cyclical
+COSMOFIRST,2217.9,Consumer Cyclical
+RPTECH,2234.33,Technology
+SANGAMIND,2244.28,Consumer Cyclical
+INDNIPPON,2247.65,Consumer Cyclical
+NILKAMAL,2258.66,Consumer Cyclical
+RML,2268.46,Consumer Cyclical
+SGFIN,2286.68,Financial Services
+NDRAUTO,2287.19,Consumer Cyclical
+HITECH,2294.89,Basic Materials
+EIHAHOTELS,2324.42,Consumer Cyclical
+CAPACITE,2338.88,Industrials
+PFS,2372.45,Financial Services
+SCILAL,2372.78,Real Estate
+AEROFLEX,2386.35,Industrials
+RAMCOSYS,2402.05,Technology
+HATHWAY,2432.12,Communication Services
+SAKSOFT,2432.45,Technology
+ADFFOODS,2444.25,Consumer Defensive
+MONARCH,2448.95,Financial Services
+JINDALPOLY,2460.14,Consumer Cyclical
+HGS,2466.74,Industrials
+BEPL,2481.35,Basic Materials
+FUSION,2493.37,Financial Services
+DCXINDIA,2498.92,Industrials
+DIAMONDYD,2516.29,Consumer Defensive
+INDOCO,2518.77,Healthcare
+EPACKPEB,2531.09,Industrials
+KMEW,2532.29,Industrials
+ALEMBICLTD,2539.8,Real Estate
+NITCO,2544.31,Industrials
+REPCOHOME,2547.74,Financial Services
+FINOPB,2550.97,Financial Services
+GRMOVER,2556.31,Consumer Defensive
+LAOPALA,2562.65,Consumer Cyclical
+ROSSTECH,2569.77,Industrials
+NRBBEARING,2573.3,Consumer Cyclical
+CARYSIL,2579.6,Consumer Cyclical
+KRSNAA,2581.47,Healthcare
+KCP,2584.36,Basic Materials
+SHALBY,2586.88,Healthcare
+MBEL,2589.1,Industrials
+DIGITIDE,2591.57,Industrials
+FMGOETZE,2599.98,Consumer Cyclical
+LANDMARK,2600.86,Consumer Cyclical
+MOLDTKPAC,2620.43,Consumer Cyclical
+AUTOAXLES,2640.85,Consumer Cyclical
+RELTD,2647.43,Technology
+MOREPENLAB,2649.9,Healthcare
+MTNL,2653.56,Communication Services
+SDBL,2656.56,Consumer Defensive
+POKARNA,2674.86,Industrials
+NUCLEUS,2678.1,Technology
+JTLIND,2685.15,Basic Materials
+PANACEABIO,2706.36,Healthcare
+HONDAPOWER,2712.03,Industrials
+IOLCP,2725.67,Healthcare
+FILATEX,2730.28,Consumer Cyclical
+SERVOTECH,2732.27,Industrials
+CARRARO,2744.22,Consumer Cyclical
+BCG,2749.23,Communication Services
+KICL,2753.48,Financial Services
+GMBREW,2765.16,Consumer Defensive
+BFUTILITIE,2771.02,Industrials
+EVEREADY,2780.26,Industrials
+KPEL,2787.68,Industrials
+RPSGVENT,2790.34,Technology
+ASHIANA,2790.45,Real Estate
+BAJAJHIND,2805,Consumer Defensive
+HPL,2812.82,Industrials
+MUTHOOTMF,2813.46,Financial Services
+GIPCL,2823.37,Utilities
+SBCL,2824.65,Industrials
+PRABHA,2857.21,Energy
+ARVSMART,2867.2,Real Estate
+PRAKASH,2878.19,Basic Materials
+EASEMYTRIP,2891.3,Consumer Cyclical
+EMSLIMITED,2898.15,Industrials
+FCL,2926.82,Basic Materials
+DALMIASUG,2936.07,Consumer Defensive
+RAMRAT,2939.8,Industrials
+HIRECT,2951.69,Industrials
+KALAMANDIR,2952.16,Consumer Cyclical
+HIKAL,2957.98,Healthcare
+PATELENG,2963.49,Industrials
+BGRENERGY,2969.38,Industrials
+SAGCEM,2970.59,Basic Materials
+DEEPINDS,2976.29,Energy
+IMAGICAA,2981.52,Communication Services
+EFCIL,2982.12,Real Estate
+JAICORPLTD,2989.2,Basic Materials
+JASH,3006.55,Industrials
+KDDL,3027.96,Consumer Cyclical
+NOCIL,3052.69,Basic Materials
+MARINE,3057.93,Industrials
+EUROPRATIK,3059.87,Basic Materials
+POLYPLEX,3064.22,Basic Materials
+MANINDS,3069.51,Basic Materials
+HINDWAREAP,3070.24,Consumer Cyclical
+RAMCOIND,3077.41,Industrials
+GLOBUSSPR,3094.12,Consumer Defensive
+GATEWAY,3097.29,Industrials
+ARKADE,3108.19,Real Estate
+DPABHUSHAN,3110.3,Consumer Cyclical
+MAITHANALL,3150.74,Basic Materials
+PARKHOTELS,3160.93,Consumer Cyclical
+DDEVPLSTIK,3161.73,Basic Materials
+KRISHANA,3165.88,Basic Materials
+BRIGHOTEL,3168.27,Consumer Cyclical
+ORISSAMINE,3202.98,Basic Materials
+FLAIR,3206.65,Industrials
+MCLOUD,3208.91,Technology
+AGIIL,3217.88,Real Estate
+ALLCARGO,3221.56,Industrials
+KKCL,3228.54,Consumer Cyclical
+SAMBHV,3242.56,Basic Materials
+EPACK,3249.15,Consumer Cyclical
+GANECOS,3252.53,Consumer Cyclical
+BHAGCHEM,3274.79,Basic Materials
+ARSSBL,3277.08,Financial Services
+SANDHAR,3281.38,Consumer Cyclical
+INDOSTAR,3316.99,Financial Services
+RPEL,3348.62,Basic Materials
+SANGHVIMOV,3386.42,Industrials
+PREMEXPLN,3397.33,Basic Materials
+ROLEXRINGS,3404.16,Industrials
+GUFICBIO,3412.27,Healthcare
+BALMLAWRIE,3414.61,Industrials
+BBL,3416.82,Industrials
+PENIND,3426.55,Industrials
+MAHLOG,3429.67,Industrials
+ADVENZYMES,3450.7,Basic Materials
+INTERARCH,3453.66,Industrials
+PRINCEPIPE,3453.93,Industrials
+BOMDYEING,3459.24,Consumer Cyclical
+PSPPROJECT,3471.37,Industrials
+KIRIINDUS,3478.02,Basic Materials
+PROTEAN,3483.82,Technology
+NPST,3485.33,Technology
+BAJAJCON,3506.84,Consumer Defensive
+PITTIENG,3518.8,Industrials
+GOCOLORS,3523.55,Consumer Cyclical
+SGLTL,3558.53,Industrials
+ORCHPHARMA,3569.86,Healthcare
+JISLDVREQS,3569.94,Industrials
+JISLJALEQS,3572.96,Industrials
+MBAPL,3582.19,Basic Materials
+PAISALO,3590.79,Financial Services
+ROSSARI,3598.4,Basic Materials
+SENORES,3610.6,Healthcare
+NAVNETEDUL,3615.74,Communication Services
+FOSECOIND,3621.76,Basic Materials
+CYIENTDLM,3626.59,Technology
+HARSHA,3626.76,Industrials
+KSL,3631.93,Basic Materials
+CENTUM,3655.02,Technology
+GREENPANEL,3656.14,Basic Materials
+MANGCHEFER,3657.97,Basic Materials
+CAMLINFINE,3664.67,Basic Materials
+63MO,3665.74,Technology
+QUESS,3671.22,Industrials
+JINDWORLD,3689.58,Consumer Cyclical
+EBGNG,3699.67,Technology
+JUBLCPL,3713.66,Basic Materials
+GREENPLY,3762.06,Basic Materials
+MSTCLTD,3763.23,Industrials
+PARAGMILK,3791.91,Consumer Defensive
+JAMNAAUTO,3796.71,Consumer Cyclical
+MPSLTD,3814.28,Communication Services
+HLEGLAS,3824.87,Industrials
+NEOGEN,3828.48,Basic Materials
+RAYMOND,3834.36,Industrials
+MIDWESTLTD,3837.02,
+LUXIND,3844.66,Consumer Cyclical
+SHANTIGEAR,3847.28,Industrials
+KOLTEPATIL,3860.24,Real Estate
+RPGLIFE,3932.15,Healthcare
+AJMERA,3971.53,Real Estate
+GOLDIAM,4018.18,Consumer Cyclical
+HEMIPROP,4037.86,Real Estate
+PRECWIRE,4057.42,Industrials
+KIRLOSIND,4063.86,Industrials
+MEDIASSIST,4084.46,Healthcare
+GUJALKALI,4101.82,Basic Materials
+SANATHAN,4105.41,Consumer Cyclical
+MARATHON,4108.94,Real Estate
+BOROLTD,4127.83,Consumer Cyclical
+GOODLUCK,4161.46,Basic Materials
+GKENERGY,4161.61,Utilities
+KITEX,4167.56,Consumer Cyclical
+NACLIND,4174.33,Basic Materials
+RBA,4188.72,Consumer Cyclical
+NSIL,4189.83,Financial Services
+EIEL,4212.02,Industrials
+GOPAL,4242.16,Consumer Defensive
+AWFIS,4269.45,Industrials
+HUBTOWN,4275.81,Real Estate
+NORTHARC,4278.72,Financial Services
+POCL,4285,Basic Materials
+RAYMONDREL,4343.81,Real Estate
+ORIENTCEM,4389.46,Basic Materials
+AARTIDRUGS,4391,Healthcare
+HEIDELBERG,4407.63,Basic Materials
+JTEKTINDIA,4418.1,Consumer Cyclical
+RAMKY,4422.43,Industrials
+CEIGALL,4438.75,Industrials
+LGBBROSLTD,4474.82,Consumer Cyclical
+SGMART,4475.67,Industrials
+RAIN,4484.16,Basic Materials
+ORIENTELEC,4518.7,Consumer Cyclical
+BALAMINES,4520.09,Basic Materials
+BANARISUG,4524.07,Consumer Defensive
+NIITMTS,4530.16,Consumer Defensive
+HERITGFOOD,4548.4,Consumer Defensive
+SAMHI,4577.03,Consumer Cyclical
+ROUTE,4588.72,Communication Services
+AVANTEL,4596.16,Technology
+ANUP,4605.69,Industrials
+BHARATRAS,4616.61,Basic Materials
+DCAL,4629.81,Healthcare
+INNOVACAP,4634.36,Healthcare
+CARERATING,4643,Financial Services
+DBCORP,4643.21,Communication Services
+INDIQUBE,4652.59,Real Estate
+PDSL,4660,Industrials
+NFL,4663.44,Basic Materials
+JCHAC,4672.75,Consumer Cyclical
+PACEDIGITK,4677.93,Technology
+INDOTHAI,4680.39,Financial Services
+LUMAXIND,4688.71,Consumer Cyclical
+JKIL,4709.42,Industrials
+JSFB,4726.05,Financial Services
+CIGNITITEC,4775.96,Technology
+INDIGOPNTS,4795.2,Basic Materials
+IONEXCHANG,4816.41,Industrials
+ENTERO,4837.76,Healthcare
+GAEL,4862.83,Consumer Defensive
+REFEX,4876.14,Energy
+RSYSTEMS,4893.13,Technology
+BALWIRE,4911.94,Basic Materials
+MOSCHIP,4939.56,Technology
+KRN,4998.32,Technology
+GUJTHEM,5042.27,Healthcare
+RESPONIND,5043.21,Basic Materials
+PTC,5072.72,Utilities
+HCC,5103.62,Industrials
+RALLIS,5107.62,Basic Materials
+GOKULAGRO,5134.51,Consumer Defensive
+INDRAMEDCO,5176.77,Healthcare
+DCBBANK,5185.38,Financial Services
+SEQUENT,5192.52,Healthcare
+GREAVESCOT,5208.27,Industrials
+ITDC,5271.82,Consumer Cyclical
+OPTIEMUS,5271.85,Technology
+RAJESHEXPO,5275.1,Consumer Cyclical
+DYNAMATECH,5305.37,Consumer Cyclical
+KNRCON,5309.73,Industrials
+SENCO,5331.5,Consumer Cyclical
+EMUDHRA,5336.04,Technology
+KSCL,5341.22,Basic Materials
+FEDFINA,5346.19,Financial Services
+AGI,5358.85,Consumer Cyclical
+ASHOKA,5373.6,Industrials
+CRIZAC,5378.96,Consumer Defensive
+GMMPFAUDLR,5449.27,Industrials
+DATAMATICS,5463.79,Technology
+MASFIN,5480.81,Financial Services
+LXCHEM,5499.17,Basic Materials
+FIEMIND,5539.01,Consumer Cyclical
+ELECTCAST,5637.21,Industrials
+ICIL,5683.34,Consumer Cyclical
+PARAS,5729.72,Industrials
+EMIL,5744.69,Consumer Cyclical
+MANINFRA,5869.31,Industrials
+RTNPOWER,5950.08,Utilities
+HGINFRA,5952.72,Industrials
+INDIAGLYCO,5991.67,Basic Materials
+JUNIPER,6008.68,Consumer Cyclical
+GULFOILLUB,6028.83,Basic Materials
+PGIL,6048.96,Consumer Cyclical
+ICRA,6075.88,Financial Services
+CMSINFO,6081.36,Industrials
+BAJAJELEC,6107.69,Consumer Cyclical
+KINGFA,6117.3,Basic Materials
+ASHAPURMIN,6125.13,Basic Materials
+GHCL,6126.04,Basic Materials
+AHLUCONT,6144.09,Industrials
+IMFA,6144.97,Basic Materials
+PRAJIND,6166.93,Industrials
+HNDFDS,6200.51,Industrials
+INFIBEAM,6205.29,Technology
+E2E,6231.29,Technology
+RENUKA,6236.4,Consumer Defensive
+AXISCADES,6286.49,Industrials
+ELLEN,6296.3,Basic Materials
+CHEMPLASTS,6307.78,Basic Materials
+PILANIINVS,6337.76,Financial Services
+ISGEC,6341.18,Industrials
+GOKEX,6367.33,Consumer Cyclical
+PICCADIL,6368.37,Consumer Defensive
+PURVA,6444.34,Real Estate
+DHANUKA,6447.12,Basic Materials
+SAATVIKGL,6452.81,Technology
+EPL,6489.35,Consumer Cyclical
+GREENLAM,6514.58,Consumer Cyclical
+PRICOLLTD,6538.33,Consumer Cyclical
+AURIONPRO,6553.99,Technology
+JKPAPER,6579.59,Basic Materials
+CUPID,6579.86,Consumer Defensive
+MASTEK,6716.91,Technology
+MHRIL,6723.76,Consumer Cyclical
+JUSTDIAL,6737.66,Communication Services
+CRAMC,6756.26,Financial Services
+GANESHHOU,6861.08,Real Estate
+HMT,6862.79,Industrials
+EQUITASBNK,6871.61,Financial Services
+ARVINDFASN,6911.61,Consumer Cyclical
+KTKBANK,6938.71,Financial Services
+AJAXENGG,6975.38,Industrials
+AKUMS,6999.83,Healthcare
+MTARTECH,7015.65,Industrials
+FDC,7040.73,Healthcare
+FISCHER,7074.01,Healthcare
+MIDHANI,7093.62,Basic Materials
+CSBBANK,7125.69,Financial Services
+RUSTOMJEE,7143.54,Real Estate
+PNCINFRA,7181.81,Industrials
+BALUFORGE,7194.8,Industrials
+REDTAPE,7263.81,Consumer Cyclical
+SFL,7301.08,Consumer Cyclical
+RAYMONDLSL,7330.01,Consumer Cyclical
+EPIGRAL,7333.81,Basic Materials
+RTNINDIA,7336.69,Consumer Cyclical
+AVL,7353.21,Consumer Cyclical
+ATLANTAELE,7416.68,Industrials
+MOIL,7475.02,Basic Materials
+GNFC,7483.69,Basic Materials
+KIRLPNU,7485.36,Industrials
+NETWORK18,7487.95,Communication Services
+RATEGAIN,7598.8,Technology
+MAXESTATES,7601.75,Real Estate
+JAYNECOIND,7616.51,Basic Materials
+QPOWER,7620.5,Industrials
+AARTIPHARM,7641.57,Healthcare
+ETHOSLTD,7671.29,Consumer Cyclical
+GPPL,7686.21,Industrials
+MAHSEAMLES,7695.57,Basic Materials
+GSFC,7698.99,Basic Materials
+CERA,7700.37,Industrials
+ESABINDIA,7704.84,Industrials
+GARFIBRES,7706.5,Consumer Cyclical
+HAPPSTMNDS,7746.93,Technology
+IFBIND,7775.15,Consumer Cyclical
+PRSMJON,7777.87,Basic Materials
+DBL,7819.28,Industrials
+AVALON,7822.56,Technology
+LUMAXTECH,7866.08,Consumer Cyclical
+DODLA,7886.05,Consumer Defensive
+KALPATARU,7934.9,Real Estate
+DIACABS,7935.12,Industrials
+GALAXYSURF,7951.87,Basic Materials
+ACI,7994.41,Basic Materials
+POWERMECH,8033.7,Industrials
+LLOYDSENGG,8068.3,Industrials
+GRWRHITECH,8110.4,Basic Materials
+DBREALTY,8187.28,Real Estate
+MAHLIFE,8232.54,Real Estate
+RCF,8289.11,Basic Materials
+MANORAMA,8303.07,Consumer Defensive
+MARKS,8308.3,Healthcare
+BECTORFOOD,8394.96,Consumer Defensive
+OSWALPUMPS,8408.68,Industrials
+PCJEWELLER,8440.4,Consumer Cyclical
+ARVIND,8445.33,Consumer Cyclical
+GMRP&UI,8461.43,Energy
+JAIBALAJI,8570.58,Basic Materials
+LATENTVIEW,8580.14,Industrials
+CAMPUS,8583.77,Consumer Cyclical
+SHARDACROP,8597.56,Basic Materials
+KRBL,8636.01,Consumer Defensive
+ALOKINDS,8654.41,Consumer Cyclical
+SAREGAMA,8746.29,Communication Services
+RELINFRA,8748.14,Utilities
+HONASA,8835.42,Consumer Defensive
+RELIGARE,8864.22,Financial Services
+MEDPLUS,8989.66,Healthcare
+PNGJL,8993.46,Consumer Cyclical
+GENUSPOWER,9001.7,Industrials
+SAPPHIRE,9003.42,Consumer Cyclical
+BIRLACORPN,9007.31,Basic Materials
+LOTUSDEV,9011.09,Industrials
+SERA,9146.37,Consumer Cyclical
+JSLL,9160.96,Healthcare
+RHIM,9238.87,Industrials
+APOLLO,9273.71,Industrials
+BORORENEW,9430,Technology
+BBOX,9444.84,Technology
+INDIASHLTR,9455.28,Financial Services
+BALRAMCHIN,9476.22,Consumer Defensive
+LLOYDSENT,9616.34,Basic Materials
+HAPPYFORGE,9621.39,Industrials
+ASKAUTOLTD,9631.4,Consumer Cyclical
+ALKYLAMINE,9647.8,Basic Materials
+RKFORGE,9746.4,Industrials
+NESCO,9832.69,Industrials
+AVANTIFEED,9836.25,Consumer Defensive
+INOXGREEN,9853.74,Utilities
+NAZARA,9876.6,Communication Services
+MAPMYINDIA,9926.51,Technology
+ASTRAMICRO,9991.06,Technology
+SHAKTIPUMP,9997,Industrials
+MMTC,10020,Industrials
+AETHER,10062.26,Basic Materials
+METROPOLIS,10074.71,Healthcare
+JLHL,10140.44,Healthcare
+RUBICON,10184.86,Healthcare
+SANDUMA,10227.62,Basic Materials
+ABFRL,10236.84,Consumer Cyclical
+PGHL,10263.4,Healthcare
+HCG,10271.86,Healthcare
+KPIGREEN,10316.01,Utilities
+HEG,10320.44,Industrials
+BANCOINDIA,10321.57,Consumer Cyclical
+JKLAKSHMI,10421.3,Basic Materials
+SAFARI,10436.57,Consumer Cyclical
+BLUESTONE,10443.38,Consumer Cyclical
+BSOFT,10509.93,Technology
+SANOFICONR,10729.97,Healthcare
+RELAXO,10815.14,Consumer Cyclical
+HFCL,10910.74,Technology
+INOXINDIA,10911.59,Industrials
+JUBLINGREA,10939.67,Basic Materials
+EUREKAFORB,10949.7,Consumer Cyclical
+SANOFI,10959.04,Healthcare
+AZAD,11002.79,Industrials
+BLUEJET,11080.97,Healthcare
+ALIVUS,11117.34,Healthcare
+ENGINERSIN,11121.6,Industrials
+CLEAN,11156.65,Basic Materials
+PRUDENT,11255.58,Financial Services
+EDELWEISS,11315.23,Financial Services
+CCL,11330.49,Consumer Defensive
+CANHLIFE,11444.65,Financial Services
+PRIVISCL,11456.7,Basic Materials
+JINDALSAW,11483.08,Basic Materials
+GRINFRA,11499.02,Industrials
+CANFINHOME,11517.83,Financial Services
+JYOTHYLAB,11528.68,Consumer Defensive
+GRAPHITE,11536.1,Industrials
+IIFLCAPS,11589.13,Financial Services
+PVRINOX,11630.8,Communication Services
+SHAILY,11692.82,Basic Materials
+JKTYRE,11702.32,Consumer Cyclical
+RITES,11734.42,Industrials
+BLACKBUCK,11754.96,Technology
+RAILTEL,11759.18,Communication Services
+FINPIPE,11762.8,Industrials
+GRAVITA,11954.14,Industrials
+J&KBANK,11971.07,Financial Services
+INDIACEM,11997.63,Basic Materials
+FINCABLES,12013.39,Industrials
+SCI,12196.43,Industrials
+JPPOWER,12267.69,Utilities
+OLECTRA,12275.68,Industrials
+INGERRAND,12329.36,Industrials
+ANURAS,12432.23,Basic Materials
+HOMEFIRST,12461.44,Financial Services
+ELECON,12517.01,Industrials
+CHENNPETRO,12556.21,Energy
+SBFC,12566.9,Financial Services
+IXIGO,12583.01,Consumer Cyclical
+BLS,12653.33,Industrials
+GODREJAGRO,12703.33,Consumer Defensive
+EMBDL,12734.88,Real Estate
+MGL,12751.22,Utilities
+ACE,12885.78,Industrials
+GALLANTT,12923.61,Basic Materials
+LEMONTREE,13052.73,Consumer Cyclical
+CYIENT,13109.78,Industrials
+IEX,13119.85,Financial Services
+BLUEDART,13141.94,Industrials
+INDGN,13152.45,Healthcare
+AAVAS,13167.02,Financial Services
+NCC,13223.08,Industrials
+BELRISE,13265.43,Consumer Cyclical
+MINDACORP,13336.73,Consumer Cyclical
+JWL,13615.77,Industrials
+JAINREC,13637.79,Basic Materials
+NIVABUPA,13665.65,Financial Services
+AARTIIND,13702.42,Basic Materials
+CELLO,13777.7,Consumer Cyclical
+PCBL,13783.05,Basic Materials
+PARADEEP,13814.18,Basic Materials
+KSB,13815.23,Industrials
+FINEORG,13832.72,Basic Materials
+GRANULES,13839.46,Healthcare
+PFOCUS,13869.87,Communication Services
+NSLNISP,13970.2,Basic Materials
+RAINBOW,13980.63,Healthcare
+BBTC,14003.22,Consumer Defensive
+NEWGEN,14021.82,Technology
+ACUTAAS,14054.68,Basic Materials
+BATAINDIA,14199.42,Consumer Cyclical
+INTELLECT,14251.95,Technology
+CEMPRO,14384.63,Industrials
+LTFOODS,14435.31,Consumer Defensive
+IGIL,14600.51,Basic Materials
+KIRLOSENG,14609.75,Industrials
+NATCOPHARM,14807.02,Healthcare
+INDIAMART,14886.58,Communication Services
+CARTRADE,14925.42,Consumer Cyclical
+CONCORDBIO,14988.23,Healthcare
+AKZOINDIA,14991.1,Basic Materials
+GESHIP,15105.48,Industrials
+NUVOCO,15175.56,Basic Materials
+IFCI,15187.85,Financial Services
+SAMMAANCAP,15248.63,Financial Services
+CAPLIPOINT,15293.55,Healthcare
+KIRLOSBROS,15324.34,Industrials
+CRAFTSMAN,15379.7,Consumer Cyclical
+DOMS,15440.8,Industrials
+JBMA,15549.53,Consumer Cyclical
+DATAPAT,15605.53,Industrials
+APTUS,15614.91,Financial Services
+ELGIEQUIP,15696.82,Industrials
+FIVESTAR,15823.72,Financial Services
+IRCON,15866.5,Industrials
+RRKABEL,15889.54,Industrials
+PGEL,16058.79,Technology
+CPPLUS,16100.43,Industrials
+JMFINANCIL,16299.66,Financial Services
+AGARWALEYE,16309.03,Healthcare
+MANYAVAR,16409.26,Consumer Cyclical
+CEATLTD,16475.93,Consumer Cyclical
+AFC,16502.5,Industrials
+ABLBL,16599.82,Consumer Cyclical
+CENTURYPLY,16649.65,Basic Materials
+CIEINDIA,16694.48,Consumer Cyclical
+CHOICEIN,16798.97,Financial Services
+LMW,16811.84,Industrials
+FIRSTCRY,16947.22,Consumer Cyclical
+ACMESOLAR,17066.5,Utilities
+ABDL,17115.46,Consumer Defensive
+GRINDWELL,17177.26,Industrials
+CARBORUNIV,17307.28,Industrials
+GPIL,17405.5,Basic Materials
+ATUL,17411.86,Basic Materials
+RATNAMANI,17440.29,Basic Materials
+GSPL,17453.82,Utilities
+NAVA,17519.57,Industrials
+CUB,17731.08,Financial Services
+JUBLPHARMA,17758.31,Healthcare
+APLLTD,17817.29,Healthcare
+BEML,18007.91,Industrials
+RPOWER,18065.05,Utilities
+BIKAJI,18323.34,Consumer Defensive
+GMDCLTD,18404.25,Energy
+ARE&M,18418.85,Industrials
+GABRIEL,18442.44,Consumer Cyclical
+JSWCEMENT,18472.23,Basic Materials
+MAHSCOOTER,18503.83,Financial Services
+JSWHL,18672.54,Industrials
+CROMPTON,18692.85,Consumer Cyclical
+ABREL,18732.88,Basic Materials
+SAILIFE,18860.42,Healthcare
+EIDPARRY,19038.29,Basic Materials
+DEEPAKFERT,19183.86,Basic Materials
+SARDAEN,19194.21,Basic Materials
+BASF,19232.08,Basic Materials
+POLYMED,19315.06,Healthcare
+KAJARIACER,19380.25,Industrials
+CHAMBLFERT,19527.79,Basic Materials
+CASTROLIND,19602.45,Energy
+CAMS,19743.47,Technology
+CGCL,19855.84,Financial Services
+RBLBANK,19941.27,Financial Services
+JYOTICNC,19943.87,Industrials
+DCMSHRIRAM,20164.79,Industrials
+KAINER,20172.4,Basic Materials
+NEULANDLAB,20194.25,Healthcare
+DEVYANI,20198.84,Consumer Cyclical
+KFINTECH,20250.95,Technology
+CHALET,20347.58,Consumer Cyclical
+REDINGTON,20439.48,Technology
+SCHNEIDER,20693.27,Industrials
+ONESOURCE,21009.65,Healthcare
+FORCEMOT,21653.1,Consumer Cyclical
+OLAELEC,21671.86,Consumer Cyclical
+KPIL,21682.31,Industrials
+IIFL,21846.07,Financial Services
+ECLERX,22143.08,Technology
+KEC,22163.71,Industrials
+AADHARHFC,22174.35,Financial Services
+ERIS,22234.16,Healthcare
+BAYERCROP,22243.19,Basic Materials
+PSB,22436.68,Financial Services
+ANANTRAJ,22485.11,Real Estate
+ANGELONE,23023.49,Financial Services
+SAGILITY,23219.39,Healthcare
+ASTRAZEN,23288.75,Healthcare
+ABSLAMC,23380.9,Financial Services
+MANAPPURAM,23391.23,Financial Services
+HSCL,23455.55,Basic Materials
+CREDITACC,23602.37,Financial Services
+CESC,23703.77,Utilities
+FSL,23751.03,Technology
+ASAHIINDIA,23788.53,Consumer Cyclical
+NETWEB,23833.15,Technology
+DEEPAKNTR,23891.29,Basic Materials
+EMAMILTD,24033.69,Consumer Defensive
+KARURVYSYA,24060.34,Financial Services
+PFIZER,24202.84,Healthcare
+PNBHOUSING,24318.47,Financial Services
+EIHOTEL,24611.21,Consumer Cyclical
+BRIGADE,24718.46,Real Estate
+RAMCOCEM,25025.73,Basic Materials
+EMCURE,25136.3,Healthcare
+HATSUN,25205.08,Consumer Defensive
+NAVINFLUOR,25605.07,Basic Materials
+PTCIL,25684.29,Industrials
+LALPATHLAB,25805.52,Healthcare
+IKS,25902.73,Healthcare
+JBCHEPHARM,26402.13,Healthcare
+ANANDRATHI,26443.65,Financial Services
+INOXWIND,26493.89,Industrials
+PPLPHARMA,26734.77,Healthcare
+KIOCL,26777.51,Basic Materials
+MRPL,26797.23,Energy
+NUVAMA,26847.51,Financial Services
+AFFLE,27001.37,Communication Services
+IRB,27006.43,Industrials
+HBLENGINE,27766.62,Industrials
+GUJGASLTD,27955.18,Utilities
+ATHERENERG,28028.27,Consumer Cyclical
+AEGISLOG,28225.43,Energy
+BANDHANBNK,28309.97,Financial Services
+KIMS,28886.08,Healthcare
+IGL,29453.17,Utilities
+GRSE,29469.64,Industrials
+GILLETTE,29699.79,Consumer Defensive
+NBCC,29783.7,Industrials
+AJANTPHARM,29839.62,Healthcare
+AMBER,29969.75,Consumer Cyclical
+MSUMI,30996.39,Consumer Cyclical
+AEGISVOPAK,31012.68,Energy
+AIAENG,31085.95,Industrials
+NIACL,31163.68,Financial Services
+METROBRAND,31199.86,Consumer Cyclical
+GLAND,31343.26,Healthcare
+ITI,31831.39,Technology
+APOLLOTYRE,31956.92,Consumer Cyclical
+LICHSGFIN,32228.19,Financial Services
+EXIDEIND,32372.27,Consumer Cyclical
+KPITTECH,32396.8,Technology
+IPCALAB,32635.14,Healthcare
+HONAUT,32656.17,Industrials
+COHANCE,32912.5,Healthcare
+HINDCOPPER,33115.49,Basic Materials
+3MINDIA,33282.65,Industrials
+GODIGIT,33309.78,Financial Services
+CDSL,34125.52,Financial Services
+AWL,34771.87,Consumer Defensive
+ACC,34941.58,Basic Materials
+DELHIVERY,35573.37,Industrials
+NLCINDIA,36066.42,Utilities
+NH,36070.53,Healthcare
+ASTERDM,36197.25,Healthcare
+MEDANTA,36421.92,Healthcare
+CRISIL,36469.17,Financial Services
+CHOLAHLDNG,36484.94,Financial Services
+KPRMILL,36557.01,Consumer Cyclical
+CENTRALBK,36567.66,Financial Services
+APARINDS,36583.29,Industrials
+GODREJIND,36748.41,Industrials
+KEI,38856.35,Industrials
+ASTRAL,38957.41,Industrials
+FLUOROCHEM,39475.7,Basic Materials
+JUBLFOOD,39499.14,Consumer Cyclical
+POONAWALLA,39867.49,Financial Services
+DALBHARAT,39913.87,Basic Materials
+ANTHEM,40093.34,Healthcare
+BLUESTARCO,40122.9,Industrials
+ESCORTS,40975.51,Industrials
+ENDURANCE,41160.76,Consumer Cyclical
+CONCOR,41218.76,Industrials
+M&MFIN,41667.87,Financial Services
+PETRONET,41677.5,Energy
+IREDA,42551.43,Financial Services
+RADICO,42684.18,Consumer Defensive
+NATIONALUM,43489.57,Basic Materials
+PGHH,43490.9,Consumer Defensive
+HEXT,43572.71,Technology
+LTTS,43778.85,Technology
+GLAXO,45029.82,Healthcare
+BALKRISIND,45166.62,Consumer Cyclical
+HUDCO,45226.92,Financial Services
+PAGEIND,45636.08,Consumer Cyclical
+ITCHOTELS,45805.44,Consumer Cyclical
+KAYNES,45866.13,Technology
+MAHABANK,46203.91,Financial Services
+MCX,46405.55,Financial Services
+360ONE,47462.52,Financial Services
+COCHHIP,47650.46,Industrials
+BIOCON,48830.41,Healthcare
+GODFRYPHLP,48950.19,Consumer Defensive
+PREMIERENE,48993.68,Technology
+APLAPOLLO,49335.92,Basic Materials
+JKCEMENT,49610.08,Basic Materials
+AIIL,51079.11,Financial Services
+GLENMARK,51222.27,Healthcare
+LINDEINDIA,51735.93,Basic Materials
+LAURUSLABS,51829.09,Healthcare
+KALYANKJIL,52149.04,Consumer Cyclical
+MFSL,52616.31,Financial Services
+MPHASIS,53860.48,Technology
+PIIND,54418.98,Basic Materials
+SAIL,54610.03,Basic Materials
+BDL,55629.53,Industrials
+NAM-INDIA,57695.15,Financial Services
+IRCTC,57736,Industrials
+FEDERALBNK,57956.26,Financial Services
+FACT,58168.54,Basic Materials
+SCHAEFFLER,60517.65,Consumer Cyclical
+COFORGE,60591.12,Technology
+HDBFS,60653.93,Financial Services
+COLPAL,60726.23,Consumer Defensive
+PHOENIXLTD,60862.21,Real Estate
+JSWINFRA,61390.83,Industrials
+OBEROIRLTY,62106.9,Real Estate
+INDUSINDBK,62306.6,Financial Services
+BHARATFORG,62562.8,Consumer Cyclical
+ABBOTINDIA,63282.44,Healthcare
+BERGEPAINT,63529.61,Basic Materials
+AUROPHARMA,63853.33,Healthcare
+BANKINDIA,64320.94,Financial Services
+IDFCFIRSTB,64563.49,Financial Services
+PATANJALI,64628.14,Consumer Defensive
+ALKEM,64947.71,Healthcare
+MOTILALOFS,65552.14,Financial Services
+AUBANK,65569.53,Financial Services
+NMDC,65630.97,Basic Materials
+COROMANDEL,66025.42,Basic Materials
+JSL,66217.62,Basic Materials
+MRF,67112.03,Consumer Cyclical
+LTF,67119.16,Financial Services
+OIL,67193.87,Energy
+GICRE,67281.12,Financial Services
+ATGL,68336.82,Utilities
+RVNL,68576.28,Industrials
+GODREJPROP,69175.05,Real Estate
+LLOYDSME,69429.74,Basic Materials
+NYKAA,73512.09,Consumer Cyclical
+OFSS,74778.21,Technology
+POWERINDIA,75576.9,Industrials
+PRESTIGE,75730.99,Real Estate
+GVT&D,75999.73,Industrials
+IOB,78181.86,Financial Services
+FORTIS,79878.68,Healthcare
+POLICYBZR,81666.32,Financial Services
+ABCAPITAL,81670.8,Financial Services
+ASHOKLEY,82316.08,Industrials
+BHEL,82748.79,Industrials
+PAYTM,83703.94,Technology
+NHPC,85011.12,Utilities
+NTPCGREEN,85603.08,Utilities
+SBICARD,86186.42,Financial Services
+ICICIPRULI,86878.34,Financial Services
+LUPIN,87638.13,Healthcare
+DABUR,89305.17,Consumer Defensive
+NAUKRI,89714.39,Communication Services
+PERSISTENT,90724.82,Technology
+BAJAJHFL,90790.17,Financial Services
+BHARTIHEXA,92357.09,Communication Services
+HAVELLS,92824.99,Industrials
+DIXON,93022.5,Technology
+MARICO,93214.62,Consumer Defensive
+JSWENERGY,93673.67,Utilities
+HINDPETRO,96209.49,Energy
+RECLTD,97204.8,Financial Services
+GMRAIRPORT,97871.15,Industrials
+BSE,98271.06,Financial Services
+MANKIND,99330.33,Healthcare
+ICICIGI,100463.73,Financial Services
+INDUSTOWER,101780.74,Communication Services
+IDEA,102480.99,Communication Services
+INDHOTEL,105583.08,Consumer Cyclical
+DRREDDY,107369.61,Healthcare
+JINDALSTEL,109227.35,Basic Materials
+ABB,109673.18,Industrials
+IDBI,109982.76,Financial Services
+ENRIN,110506.7,Utilities
+ADANIOL,110662.16,Utilities
+MAZDOCK,112155.77,Industrials
+HEROMOTOCO,112228.07,Consumer Cyclical
+LGEINDIA,112275.74,Technology
+MOTHERSON,112911.44,Consumer Cyclical
+POLYCAB,113069.37,Industrials
+APOLLOHOSP,113309.5,Healthcare
+BOSCHLTD,113668.48,Consumer Cyclical
+CGPOWER,113838.89,Industrials
+GODREJCP,114177.83,Consumer Defensive
+MAXHEALTH,114699.56,Healthcare
+INDIANB,115369.44,Financial Services
+LODHA,116723.39,Real Estate
+GAIL,117423.54,Utilities
+CANBK,117964.24,Financial Services
+CUMMIND,118835.41,Industrials
+HDFCAMC,120889.38,Financial Services
+CIPLA,126665.74,Healthcare
+MUTHOOTFIN,127966.55,Financial Services
+PFC,130369.66,Financial Services
+AMBUJACEM,137161.49,Basic Materials
+PNB,139411.85,Financial Services
+BRITANNIA,141236.19,Consumer Defensive
+BAJAJHLDNG,142311.02,Financial Services
+BANKBARODA,143404.07,Financial Services
+CHOLAFIN,145376.29,Financial Services
+BPCL,147791.19,Energy
+PIDILITIND,151842.94,Basic Materials
+IRFC,160442.05,Financial Services
+HDFCLIFE,161019.33,Financial Services
+ADANIGREEN,165409.43,Utilities
+LTIM,165962.27,Technology
+DIVISLAB,170921.94,Healthcare
+HYUNDAI,186778.82,Consumer Cyclical
+HINDALCO,189751.15,Basic Materials
+DLF,191601.5,Real Estate
+EICHERMOT,192063.16,Consumer Cyclical
+SBILIFE,194177.37,Financial Services
+JIOFIN,195645.01,Financial Services
+GRASIM,199012.83,Basic Materials
+HINDZINC,199097.03,Basic Materials
+IOC,218201.38,Energy
+INDIGO,224569.48,Industrials
+ASIANPAINT,240536.05,Basic Materials
+COALINDIA,241209.18,Energy
+NESTLEIND,245088.75,Consumer Defensive
+BAJAJ-AUTO,252930.63,Consumer Cyclical
+POWERGRID,268135.96,Utilities
+DMART,274755.01,Consumer Defensive
+ADANIENT,287933.46,Energy
+JSWSTEEL,289246.44,Basic Materials
+BEL,302295.89,Industrials
+ETERNAL,304493.68,Consumer Cyclical
+ADANIPORTS,306286.11,Industrials
+ADANIPOWER,313221.34,Utilities
+ONGC,315186.32,Energy
+HAL,315995.98,Industrials
+NTPC,328910.53,Utilities
+BAJAJFV,341628.73,Financial Services
+AXISBANK,386743.09,Financial Services
+HCLTECH,411805.73,Technology
+M&M,429508.6,Consumer Cyclical
+KOTAKBANK,429695.07,Financial Services
+MARUTI,512822.03,Consumer Cyclical
+ITC,523538.32,Consumer Defensive
+LT,546480.9,Industrials
+LICI,569186.56,Financial Services
+HINDUNILVR,586739.82,Consumer Defensive
+INFY,621879.39,Technology
+BAJFINANCE,666728.56,Financial Services
+SBIN,858678.2,Financial Services
+ICICIBANK,973925.36,Financial Services
+BHARTIARTL,1253257.72,Communication Services
+HDFCBANK,1541820.59,Financial Services
+RELIANCE,2012143.31,Energy
