@@ -46,12 +46,6 @@ def compute_breakouts_for_symbol(symbol, monthly_df):
     if len(df) < 3:
         return []
 
-    # Exclude current incomplete month
-    today = date.today()
-    df = df[pd.to_datetime(df["date"]).dt.date < date(today.year, today.month, 1)]
-    if len(df) < 3:
-        return []
-
     results = []
 
     for i in range(1, len(df)):
