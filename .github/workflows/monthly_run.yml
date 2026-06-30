@@ -1,8 +1,12 @@
 name: Monthly Pipeline
 
+concurrency:
+  group: market-db
+  cancel-in-progress: false
+
 on:
   schedule:
-    - cron: '30 10 28-31 * 1-5'  # 4:00 PM IST, days 28-31, weekdays only
+    - cron: '30 11 28-31 * 1-5'   # 5:00 PM IST (last weekdays of month)
   workflow_dispatch:
 
 jobs:
@@ -12,33 +16,29 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
-        run: pip install yfinance duckdb pandas
+      - run: pip install yfinance duckdb pandas
 
-      - name: Update monthly OHLC
-        run: python scripts/update_monthly.py
+      - run: python scripts/update_monthly.py
 
-      - name: Mark breakouts
-        run: python scripts/mark_breakouts.py
+      - run: python scripts/mark_breakouts.py
 
-      - name: Update daily OHLC for new breakout stocks
-        run: python scripts/update_daily.py
+      - run: python scripts/update_daily.py
 
-      - name: Enrich breakouts with daily candle data
-        run: python scripts/enrich_breakouts.py
+      - run: python scripts/enrich_breakouts.py
 
       - name: Commit DB
         run: |
           git config user.email "bot@github.com"
           git config user.name "PipelineBot"
+
           git add data/market.db
           git diff --cached --quiet || git commit -m "Monthly update $(date +'%Y-%m')"
+
+          git pull --rebase origin main
           git push
