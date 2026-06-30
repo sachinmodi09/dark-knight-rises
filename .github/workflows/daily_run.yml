@@ -2,8 +2,8 @@ name: Daily Pipeline
 
 on:
   schedule:
-    - cron: '40 9 * * 1-5'    # 3:10 PM IST — scan and email
-    - cron: '30 10 * * 1-5'   # 4:00 PM IST — post-close final update
+    - cron: '40 9 * * 1-5'    # 3:10 PM IST
+    - cron: '30 10 * * 1-5'   # 4:00 PM IST
   workflow_dispatch:
 
 jobs:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: github.event.schedule == '40 9 * * 1-5' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '40 9 * * 1-5'
 
     steps:
       - name: Checkout repo
