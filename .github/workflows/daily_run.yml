@@ -1,9 +1,15 @@
 name: Daily Pipeline
 
+concurrency:
+  group: market-db
+  cancel-in-progress: false
+
 on:
   schedule:
-    - cron: '40 9 * * 1-5'    # 3:10 PM IST
-    - cron: '30 10 * * 1-5'   # 4:00 PM IST
+    - cron: '0 4 * * 1-5'      # 9:30 AM IST
+    - cron: '0 7 * * 1-5'      # 12:30 PM IST
+    - cron: '45 9 * * 1-5'     # 3:15 PM IST
+    - cron: '30 10 * * 1-5'    # 4:00 PM IST (Post Close)
   workflow_dispatch:
 
 jobs:
@@ -11,25 +17,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '40 9 * * 1-5'
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event.schedule == '0 4 * * 1-5' ||
+      github.event.schedule == '0 7 * * 1-5' ||
+      github.event.schedule == '45 9 * * 1-5'
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
-        run: pip install yfinance duckdb pandas
+      - run: pip install yfinance duckdb pandas
 
-      - name: Update daily OHLC
-        run: python scripts/update_daily.py
+      - run: python scripts/update_daily.py
 
-      - name: Enrich breakouts
-        run: python scripts/enrich_breakouts.py
+      - run: python scripts/enrich_breakouts.py
 
       - name: Scan retest and send email
         env:
@@ -42,8 +47,11 @@ jobs:
         run: |
           git config user.email "bot@github.com"
           git config user.name "PipelineBot"
+
           git add data/market.db
-          git diff --cached --quiet || git commit -m "Daily scan $(date +'%Y-%m-%d')"
+          git diff --cached --quiet || git commit -m "Daily scan $(date +'%Y-%m-%d %H:%M')"
+
+          git pull --rebase origin main
           git push
 
   post_close:
@@ -53,30 +61,27 @@ jobs:
     if: github.event.schedule == '30 10 * * 1-5'
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
-        run: pip install yfinance duckdb pandas
+      - run: pip install yfinance duckdb pandas
 
-      - name: Update daily OHLC with final candles
-        run: python scripts/update_daily.py
+      - run: python scripts/update_daily.py
 
-      - name: Enrich breakouts post close
-        run: python scripts/enrich_breakouts.py
+      - run: python scripts/enrich_breakouts.py
 
-      - name: Update performance fields on final closes
-        run: python scripts/update_perf.py
+      - run: python scripts/update_perf.py
 
       - name: Commit DB
         run: |
           git config user.email "bot@github.com"
           git config user.name "PipelineBot"
+
           git add data/market.db
           git diff --cached --quiet || git commit -m "Post-close update $(date +'%Y-%m-%d')"
+
+          git pull --rebase origin main
           git push
