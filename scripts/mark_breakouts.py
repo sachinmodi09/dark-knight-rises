@@ -149,6 +149,32 @@ def main():
 
     total  = con.execute("SELECT COUNT(*) FROM breakout_monthly").fetchone()[0]
     active = con.execute("SELECT COUNT(*) FROM breakout_monthly WHERE status='active'").fetchone()[0]
+    
+    current_month_breakouts = con.execute("""
+    SELECT
+    symbol,
+    breakout_month,
+    breakout_close,
+    prev_ath,
+    breakout_strength
+    FROM breakout_monthly
+    WHERE breakout_month = (
+    SELECT MAX(breakout_month)
+    FROM breakout_monthly
+    )
+    ORDER BY breakout_strength DESC
+    """).fetchdf()
+
+    print("\n========== CURRENT MONTH BREAKOUTS ==========")
+
+    if current_month_breakouts.empty:
+     print("No breakouts detected for the latest month.")
+    else:
+     print(current_month_breakouts.to_string(index=False))
+
+    print("=============================================\n")
+    
+    
     print(f"breakout_monthly — total: {total}, active: {active}")
     print("Run enrich_breakouts.py next after init_daily.py completes.")
 
