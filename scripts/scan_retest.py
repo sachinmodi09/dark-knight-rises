@@ -107,8 +107,15 @@ def main():
 
     # Load active breakouts last 12 months with full daily candle data
     breakouts = con.execute("""
-        SELECT symbol, breakout_month, breakout_date,
-               breakout_day_low, breakout_day_high
+        SELECT
+        symbol,
+        breakout_month,
+        breakout_date,
+        breakout_day_open,
+        breakout_day_high,
+        breakout_day_low,
+        breakout_day_close,
+        consolidation_months
         FROM breakout_monthly
         WHERE status = 'active'
         AND breakout_month >= ?
