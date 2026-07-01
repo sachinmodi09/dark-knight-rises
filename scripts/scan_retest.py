@@ -243,6 +243,7 @@ def main():
             ""
         ])
     subject = f"[Retest Alert] {len(candidates)} stocks in zone — {today}"
+    body = "\n".join(lines)
     send_email(subject, body)
 
     con.close()
