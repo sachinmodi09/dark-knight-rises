@@ -149,6 +149,9 @@ def main():
         bo_date     = pd.to_datetime(bo["breakout_date"]).date()
         bo_day_low  = float(bo["breakout_day_low"])
         bo_day_high = float(bo["breakout_day_high"])
+        bo_day_open = float(bo["breakout_day_open"])
+        bo_day_close = float(bo["breakout_day_close"])
+        consolidation = int(bo["consolidation_months"])
 
         candle_size = bo_day_high - bo_day_low
         zone_low    = bo_day_low
@@ -171,7 +174,7 @@ def main():
             continue
 
         days_since   = (current_date - bo_date).days
-        pct_from_low = round((current_low - bo_day_low) / bo_day_low * 100, 4)
+        pct_from_low = round((current_close - bo_day_low) / bo_day_low * 100,2)
 
         candidates.append({
             "symbol":                           sym,
@@ -188,7 +191,15 @@ def main():
             "perf_5d":  None,
             "perf_10d": None,
             "perf_20d": None,
-            "perf_30d": None
+            "perf_30d": None,
+            "current_price": current_close,
+  
+            "breakout_open": bo_day_open,
+            "breakout_high": bo_day_high,
+            "breakout_low": bo_day_low,
+            "breakout_close": bo_day_close,
+            
+            "consolidation_months": consolidation,
         })
 
     print(f"Retest candidates today: {len(candidates)}")
@@ -206,27 +217,31 @@ def main():
             FROM df_insert
         """)
 
-    # Build email
     lines = [
-        f"Retest Scan — {today}",
-        f"Nifty 500 above 50DMA: {nifty_above}",
-        f"Stocks in retest zone: {len(candidates)}",
-        "",
-        f"{'Symbol':<12} {'BO Month':<12} {'BO Low':>8} {'BO High':>8} {'Zone High':>10} {'Day Low':>8} {'Close':>8} {'Days':>6}",
-        "-" * 80
+    f"Retest Scan - {today}",
+    f"Nifty 500 Above 50 DMA : {nifty_above}",
+    f"Candidates : {len(candidates)}",
+    ""
     ]
-    for c in sorted(candidates, key=lambda x: x["retest_pct_from_breakout_day_low"]):
-        lines.append(
-            f"{c['symbol']:<12} {str(c['breakout_month']):<12} "
-            f"{bo_day_low:>8.2f} {bo_day_high:>8.2f} {zone_high:>10.2f} "
-            f"{c['retest_low']:>8.2f} {c['retest_close']:>8.2f} "
-            f"{c['days_since_breakout']:>5}d"
-        )
 
-    if not candidates:
-        lines.append("No stocks in retest zone today.")
-
-    body    = "\n".join(lines)
+    for i, c in enumerate(
+            sorted(candidates,
+                   key=lambda x: x["retest_pct_from_breakout_day_low"]),
+            1):
+    
+        lines.extend([
+            f"{i}. {c['symbol']}",
+            f"   Current Price : {c['current_price']:.2f}",
+            f"   Breakout      : "
+            f"O:{c['breakout_open']:.2f} "
+            f"H:{c['breakout_high']:.2f} "
+            f"L:{c['breakout_low']:.2f} "
+            f"C:{c['breakout_close']:.2f}",
+            f"   From BO Low   : +{c['retest_pct_from_breakout_day_low']:.2f}%",
+            f"   Consolidation : {c['consolidation_months']} months",
+            f"   Days Since BO : {c['days_since_breakout']}",
+            ""
+        ])
     subject = f"[Retest Alert] {len(candidates)} stocks in zone — {today}"
     send_email(subject, body)
 
