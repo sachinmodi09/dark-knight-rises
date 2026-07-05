@@ -45,21 +45,46 @@ def is_nifty500_above_50dma(con):
     return above
 
 def get_active_breakouts(con):
-    """Active breakouts (last 12 months) with a known breakout day -- the factual basis for scanning."""
+    """
+    Active breakouts (last 12 months) with a known breakout day -- the factual
+    basis for scanning.
+
+    Two guards against premature/unconfirmed breakouts:
+
+    1. The breakout's month must have fully closed. breakout_month for the
+       current, still-in-progress calendar month is a monthly candle built
+       from however many trading days have happened so far -- its close can
+       still move a lot before the month actually ends, so a "breakout"
+       against it isn't confirmed yet. Only monthly candles from a month
+       that has actually finished are trustworthy.
+    2. Confirmed departure: at least one close after breakout_date must have
+       exceeded breakout_day_high. Without this, a breakout that's only 1-3
+       days old trivially sits "near the low" simply because it hasn't moved
+       yet -- that's not a retest, it's a stock that never left the starting
+       line. A real retest needs the round trip: breakout, rally away, pull back.
+    """
     today = date.today()
     cutoff = today - timedelta(days=365)
+    current_month_start = today.replace(day=1)
     return con.execute("""
         SELECT
-            symbol, breakout_month, breakout_date,
-            breakout_day_open, breakout_day_high, breakout_day_low, breakout_day_close,
-            consolidation_months
-        FROM breakout_monthly
-        WHERE status = 'active'
-        AND breakout_month >= ?
-        AND breakout_date IS NOT NULL
-        AND breakout_date <= ?
-        AND breakout_day_low IS NOT NULL
-    """, [cutoff, today]).fetchdf()
+            b.symbol, b.breakout_month, b.breakout_date,
+            b.breakout_day_open, b.breakout_day_high, b.breakout_day_low, b.breakout_day_close,
+            b.consolidation_months
+        FROM breakout_monthly b
+        WHERE b.status = 'active'
+        AND b.breakout_month >= ?
+        AND b.breakout_month < ?
+        AND b.breakout_date IS NOT NULL
+        AND b.breakout_date <= ?
+        AND b.breakout_day_low IS NOT NULL
+        AND EXISTS (
+            SELECT 1 FROM daily_ohlc d
+            WHERE d.symbol = b.symbol
+            AND d.date > b.breakout_date
+            AND d.close > b.breakout_day_high
+        )
+    """, [cutoff, current_month_start, today]).fetchdf()
 
 def compute_candidates(breakouts, price_map, as_of_date):
     """
