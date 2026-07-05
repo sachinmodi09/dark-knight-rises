@@ -1,0 +1,3 @@
+__pycache__/
+*.pyc
+scripts/live_retest_log.txt

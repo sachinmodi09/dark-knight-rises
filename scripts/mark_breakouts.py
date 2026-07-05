@@ -43,10 +43,24 @@ def init_breakout_table(con):
 
 def compute_breakouts_for_symbol(symbol, monthly_df):
     df = monthly_df.copy().sort_values("date").reset_index(drop=True)
+
+    # Drop stale-quote placeholder rows: yfinance sometimes fills months it has
+    # no real data for with a flat, zero-volume repeat of the last known price.
+    # Treating those as genuine history would let a fake price set a false ATH
+    # ceiling (or ceiling too low) that has nothing to do with real trading.
+    is_placeholder = (
+        (df["volume"] == 0) &
+        (df["open"] == df["high"]) &
+        (df["high"] == df["low"]) &
+        (df["low"] == df["close"])
+    )
+    df = df[~is_placeholder].reset_index(drop=True)
+
     if len(df) < 3:
         return []
 
     results = []
+    last_breakout_month = None  # month of this symbol's last CONFIRMED breakout
 
     for i in range(1, len(df)):
         prev = df.iloc[:i]
@@ -62,8 +76,15 @@ def compute_breakouts_for_symbol(symbol, monthly_df):
 
         breakout_month_date = curr["date"]
 
-        # Duration in months
-        pm = pd.Period(str(prev_ath_month)[:7], freq="M")
+        # Consolidation duration = months since this symbol's last CONFIRMED
+        # breakout, not since prev_ath_month. prev_ath_month can land on a
+        # month that merely poked a new intraday/monthly high without ever
+        # closing above the prior level (a false breakout) -- that would
+        # understate how long the stock actually spent below resistance.
+        # Only fall back to prev_ath_month when there's no earlier confirmed
+        # breakout to reference (this is the symbol's first one).
+        reference_month = last_breakout_month if last_breakout_month is not None else prev_ath_month
+        pm = pd.Period(str(reference_month)[:7], freq="M")
         bm = pd.Period(str(breakout_month_date)[:7], freq="M")
         consolidation_months = (bm - pm).n
 
@@ -103,13 +124,65 @@ def compute_breakouts_for_symbol(symbol, monthly_df):
             "status":               "active"
         })
 
+        last_breakout_month = breakout_month_date
+
     return results
+
+def true_up_monthly_from_daily(con, min_daily_rows=15, mismatch_tol=0.005):
+    """
+    yfinance's monthly-interval endpoint has occasionally returned a close that
+    disagrees with the stock's own actual daily closes for that month (not the
+    duplicate-row bug -- a separate data-quality issue). Wherever daily_ohlc has
+    near-complete coverage for a given symbol/month, that's the more trustworthy
+    source, so true up monthly_ohlc's OHLCV from it before computing breakouts.
+    """
+    months = con.execute(
+        "SELECT DISTINCT strftime(date, '%Y-%m') AS ym FROM monthly_ohlc ORDER BY ym"
+    ).fetchdf()["ym"].tolist()
+
+    fixed_total = 0
+    for ym in months:
+        rows = con.execute("""
+            SELECT symbol, date, close FROM monthly_ohlc
+            WHERE strftime(date, '%Y-%m') = ?
+        """, [ym]).fetchdf()
+
+        for _, row in rows.iterrows():
+            sym = row["symbol"]
+            daily_count = con.execute("""
+                SELECT COUNT(*) FROM daily_ohlc WHERE symbol = ? AND strftime(date, '%Y-%m') = ?
+            """, [sym, ym]).fetchone()[0]
+            if daily_count < min_daily_rows:
+                continue
+
+            agg = con.execute("""
+                SELECT
+                    (SELECT open FROM daily_ohlc WHERE symbol = ? AND strftime(date,'%Y-%m') = ? ORDER BY date ASC LIMIT 1),
+                    MAX(high), MIN(low),
+                    (SELECT close FROM daily_ohlc WHERE symbol = ? AND strftime(date,'%Y-%m') = ? ORDER BY date DESC LIMIT 1),
+                    SUM(volume)
+                FROM daily_ohlc WHERE symbol = ? AND strftime(date,'%Y-%m') = ?
+            """, [sym, ym, sym, ym, sym, ym]).fetchone()
+            o, h, l, c, v = agg
+            if c is None or c == 0:
+                continue
+
+            if abs(c - row["close"]) / c > mismatch_tol:
+                con.execute("""
+                    UPDATE monthly_ohlc SET open=?, high=?, low=?, close=?, volume=?
+                    WHERE symbol = ? AND date = ?
+                """, [round(o, 4), round(h, 4), round(l, 4), round(c, 4), int(v), sym, row["date"]])
+                fixed_total += 1
+
+    print(f"True-up from daily_ohlc: corrected {fixed_total} monthly_ohlc rows.")
 
 def main():
     print(f"=== mark_breakouts.py started at {datetime.now()} ===")
 
     con = duckdb.connect(DB_PATH)
     init_breakout_table(con)
+
+    true_up_monthly_from_daily(con)
 
     symbols = con.execute(
         "SELECT DISTINCT symbol FROM monthly_ohlc ORDER BY symbol"

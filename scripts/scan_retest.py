@@ -1,52 +1,25 @@
 """
 scan_retest.py
-Runs every market day at 3:45 PM IST via GitHub Actions.
-For each active breakout stock (last 12 months), checks if today's price
-touched the lower 33% of the breakout candle.
-
-Retest zone = lower 33% of breakout candle:
-  zone_low  = breakout_day_low
-  zone_high = breakout_day_low + (breakout_day_high - breakout_day_low) * 0.33
-
-Condition:
-  - Today's LOW <= zone_high (touched the zone)
-  - Today's CLOSE > breakout_day_low (support held)
-  - Nifty 500 above 50DMA
-
-Every touch is a valid retest — multiple entries per stock allowed.
+Runs once daily after market close via GitHub Actions.
+Stateless: reads breakout_monthly (fact) and today's daily_ohlc close (fact),
+computes today's buy-zone candidates fresh, and emails. Nothing is written
+to the database -- "is this in the buy zone" is a query against the facts,
+re-evaluated every run, not a history to persist. See retest_common.py.
 """
 
 import os
 import duckdb
-import pandas as pd
 import smtplib
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-DB_PATH               = "data/market.db"
-INDEX_SYMBOL          = "NIFTY500"
-RETEST_CANDLE_FRACTION = 0.33
-EMAIL_SENDER          = os.environ.get("EMAIL_SENDER")
-EMAIL_PASSWORD        = os.environ.get("EMAIL_PASSWORD")
-EMAIL_RECEIVER        = os.environ.get("EMAIL_RECEIVER")
+import retest_common as rc
 
-def is_nifty500_above_50dma(con):
-    df = con.execute("""
-        SELECT close FROM index_daily_ohlc
-        WHERE symbol = ?
-        ORDER BY date DESC LIMIT 50
-    """, [INDEX_SYMBOL]).fetchdf()
-
-    if len(df) < 10:
-        print("  Warning: insufficient index data.")
-        return True
-
-    latest_close = float(df["close"].iloc[0])
-    ma_50        = float(df["close"].mean())
-    above        = latest_close > ma_50
-    print(f"  Nifty500 close={latest_close:.2f}, 50DMA={ma_50:.2f}, above={above}")
-    return above
+DB_PATH        = rc.DB_PATH
+EMAIL_SENDER   = os.environ.get("EMAIL_SENDER")
+EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
+EMAIL_RECEIVER = os.environ.get("EMAIL_RECEIVER")
 
 def send_email(subject, body):
     if not EMAIL_SENDER or not EMAIL_PASSWORD or not EMAIL_RECEIVER:
@@ -66,36 +39,27 @@ def send_email(subject, body):
     except Exception as e:
         print(f"Email failed: {e}")
 
+def get_todays_prices(con, symbols):
+    """Latest daily_ohlc close per symbol -- the official, once-daily price."""
+    df = con.execute("""
+        SELECT symbol, date, close
+        FROM daily_ohlc
+        WHERE symbol IN ({})
+        AND date = (SELECT MAX(date) FROM daily_ohlc d2 WHERE d2.symbol = daily_ohlc.symbol)
+    """.format(",".join(["?" for _ in symbols])), symbols).fetchdf()
+
+    return {
+        row["symbol"]: {"price": row["close"], "date": row["date"]}
+        for _, row in df.iterrows()
+    }
+
 def main():
     print(f"=== scan_retest.py started at {datetime.now()} ===")
-
-    today  = date.today()
-    cutoff = today - timedelta(days=365)
+    today = date.today()
 
     con = duckdb.connect(DB_PATH)
 
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS retest_history (
-            symbol                          VARCHAR,
-            breakout_month                  DATE,
-            retest_date                     DATE,
-            retest_open                     DOUBLE,
-            retest_high                     DOUBLE,
-            retest_low                      DOUBLE,
-            retest_close                    DOUBLE,
-            retest_volume                   BIGINT,
-            days_since_breakout             INTEGER,
-            retest_pct_from_breakout_day_low DOUBLE,
-            nifty500_above_50dma            BOOLEAN,
-            perf_5d                         DOUBLE,
-            perf_10d                        DOUBLE,
-            perf_20d                        DOUBLE,
-            perf_30d                        DOUBLE,
-            PRIMARY KEY (symbol, retest_date)
-        )
-    """)
-
-    nifty_above = is_nifty500_above_50dma(con)
+    nifty_above = rc.is_nifty500_above_50dma(con)
     if not nifty_above:
         print("Nifty 500 below 50DMA. No signals today.")
         send_email(
@@ -105,25 +69,7 @@ def main():
         con.close()
         return
 
-    # Load active breakouts last 12 months with full daily candle data
-    breakouts = con.execute("""
-        SELECT
-        symbol,
-        breakout_month,
-        breakout_date,
-        breakout_day_open,
-        breakout_day_high,
-        breakout_day_low,
-        breakout_day_close,
-        consolidation_months
-        FROM breakout_monthly
-        WHERE status = 'active'
-        AND breakout_month >= ?
-        AND breakout_date IS NOT NULL
-        AND breakout_day_low IS NOT NULL
-        AND breakout_day_high IS NOT NULL
-    """, [cutoff]).fetchdf()
-
+    breakouts = rc.get_active_breakouts(con)
     print(f"Active breakouts to scan: {len(breakouts)}")
 
     if breakouts.empty:
@@ -131,122 +77,16 @@ def main():
         con.close()
         return
 
-    # Load today's data for all these stocks
-    symbols = breakouts["symbol"].tolist()
-    today_data = con.execute("""
-        SELECT symbol, date, open, high, low, close, volume
-        FROM daily_ohlc
-        WHERE symbol IN ({})
-        AND date = (SELECT MAX(date) FROM daily_ohlc d2 WHERE d2.symbol = daily_ohlc.symbol)
-    """.format(",".join(["?" for _ in symbols])), symbols).fetchdf()
+    price_map = get_todays_prices(con, breakouts["symbol"].tolist())
+    con.close()
 
-    today_map = today_data.set_index("symbol").to_dict("index")
-    candidates = []
-
-    for _, bo in breakouts.iterrows():
-        sym         = bo["symbol"]
-        bo_month    = pd.to_datetime(bo["breakout_month"]).date()
-        bo_date     = pd.to_datetime(bo["breakout_date"]).date()
-        bo_day_low  = float(bo["breakout_day_low"])
-        bo_day_high = float(bo["breakout_day_high"])
-        bo_day_open = float(bo["breakout_day_open"])
-        bo_day_close = float(bo["breakout_day_close"])
-        consolidation = int(bo["consolidation_months"])
-
-        candle_size = bo_day_high - bo_day_low
-        zone_low    = bo_day_low
-        zone_high   = bo_day_low + candle_size * RETEST_CANDLE_FRACTION
-
-        if sym not in today_map:
-            continue
-
-        td            = today_map[sym]
-        current_low   = float(td["low"])
-        current_close = float(td["close"])
-        current_date  = pd.to_datetime(td["date"]).date()
-
-        # Must be after breakout_date
-        if current_date <= bo_date:
-            continue
-
-        # Retest condition
-        if not (current_low <= zone_high and current_close > bo_day_low):
-            continue
-
-        days_since   = (current_date - bo_date).days
-        pct_from_low = round((current_close - bo_day_low) / bo_day_low * 100,2)
-
-        candidates.append({
-            "symbol":                           sym,
-            "breakout_month":                   bo_month,
-            "retest_date":                      current_date,
-            "retest_open":                      round(float(td["open"]), 4),
-            "retest_high":                      round(float(td["high"]), 4),
-            "retest_low":                       round(current_low, 4),
-            "retest_close":                     round(current_close, 4),
-            "retest_volume":                    int(td["volume"]),
-            "days_since_breakout":              days_since,
-            "retest_pct_from_breakout_day_low": pct_from_low,
-            "nifty500_above_50dma":             nifty_above,
-            "perf_5d":  None,
-            "perf_10d": None,
-            "perf_20d": None,
-            "perf_30d": None,
-            "current_price": current_close,
-  
-            "breakout_open": bo_day_open,
-            "breakout_high": bo_day_high,
-            "breakout_low": bo_day_low,
-            "breakout_close": bo_day_close,
-            
-            "consolidation_months": consolidation,
-        })
-
+    candidates = rc.compute_candidates(breakouts, price_map, today)
     print(f"Retest candidates today: {len(candidates)}")
 
-    if candidates:
-        df_insert = pd.DataFrame(candidates)
-        con.execute("""
-            INSERT OR IGNORE INTO retest_history
-            SELECT
-                symbol, breakout_month, retest_date,
-                retest_open, retest_high, retest_low, retest_close, retest_volume,
-                days_since_breakout, retest_pct_from_breakout_day_low,
-                nifty500_above_50dma,
-                perf_5d, perf_10d, perf_20d, perf_30d
-            FROM df_insert
-        """)
-
-    lines = [
-    f"Retest Scan - {today}",
-    f"Nifty 500 Above 50 DMA : {nifty_above}",
-    f"Candidates : {len(candidates)}",
-    ""
-    ]
-
-    for i, c in enumerate(
-            sorted(candidates,
-                   key=lambda x: x["retest_pct_from_breakout_day_low"]),
-            1):
-    
-        lines.extend([
-            f"{i}. {c['symbol']}",
-            f"   Current Price : {c['current_price']:.2f}",
-            f"   Breakout      : "
-            f"O:{c['breakout_open']:.2f} "
-            f"H:{c['breakout_high']:.2f} "
-            f"L:{c['breakout_low']:.2f} "
-            f"C:{c['breakout_close']:.2f}",
-            f"   From BO Low   : +{c['retest_pct_from_breakout_day_low']:.2f}%",
-            f"   Consolidation : {c['consolidation_months']} months",
-            f"   Days Since BO : {c['days_since_breakout']}",
-            ""
-        ])
     subject = f"[Retest Alert] {len(candidates)} stocks in zone — {today}"
-    body = "\n".join(lines)
+    body = rc.format_email_body(candidates, nifty_above, str(today))
     send_email(subject, body)
 
-    con.close()
     print("=== Done ===")
 
 if __name__ == "__main__":

@@ -77,11 +77,15 @@ def main():
                 row = df.iloc[-1]
                 month_date = df.index[-1].date()
 
-                # Replace existing record
+                # Replace any existing record for this calendar month, regardless
+                # of the exact date yfinance labeled it with. yfinance labels a
+                # still-forming month by its 1st and a closed month by its actual
+                # last trading day, so matching on exact date would leave a stale
+                # duplicate behind if this ever runs more than once in a month.
                 con.execute(
                     """
                     DELETE FROM monthly_ohlc
-                    WHERE symbol = ? AND date = ?
+                    WHERE symbol = ? AND strftime(date, '%Y-%m') = strftime(?, '%Y-%m')
                     """,
                     [sym, month_date]
                 )

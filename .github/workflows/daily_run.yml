@@ -6,10 +6,7 @@ concurrency:
 
 on:
   schedule:
-    - cron: '0 3 * * 1-5'      # 9:30 AM IST
-    - cron: '0 6 * * 1-5'      # 12:30 PM IST
-    - cron: '45 8 * * 1-5'     # 3:15 PM IST
-    - cron: '30 9 * * 1-5'    # 4:00 PM IST (Post Close)
+    - cron: '30 10 * * 1-5'   # 4:00 PM IST (after market close)
   workflow_dispatch:
 
 jobs:
@@ -17,11 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      github.event.schedule == '0 4 * * 1-5' ||
-      github.event.schedule == '0 7 * * 1-5' ||
-      github.event.schedule == '45 9 * * 1-5'
 
     steps:
       - uses: actions/checkout@v4
@@ -50,38 +42,6 @@ jobs:
 
           git add data/market.db
           git diff --cached --quiet || git commit -m "Daily scan $(date +'%Y-%m-%d %H:%M')"
-
-          git pull --rebase origin main
-          git push
-
-  post_close:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    if: github.event.schedule == '30 10 * * 1-5'
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - run: pip install yfinance duckdb pandas
-
-      - run: python scripts/update_daily.py
-
-      - run: python scripts/enrich_breakouts.py
-
-      - run: python scripts/update_perf.py
-
-      - name: Commit DB
-        run: |
-          git config user.email "bot@github.com"
-          git config user.name "PipelineBot"
-
-          git add data/market.db
-          git diff --cached --quiet || git commit -m "Post-close update $(date +'%Y-%m-%d')"
 
           git pull --rebase origin main
           git push
