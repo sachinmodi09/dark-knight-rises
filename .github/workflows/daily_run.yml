@@ -1,5 +1,15 @@
 name: Daily Pipeline
 
+# One single run, once a day after close (or manually anytime via
+# workflow_dispatch): refreshes this month's monthly candle, detects any
+# breakouts (confirmed from past closed months, or preliminary from the
+# current month), refreshes daily prices, enriches breakout days, and scans
+# for retests. update_monthly.py and update_daily.py both overwrite/upsert
+# by (symbol, date) -- safe to run daily instead of monthly, never creates
+# duplicates. This replaces the separate monthly_run.yml: running
+# update_monthly.py + mark_breakouts.py every day naturally covers the last
+# day of the month too, so a dedicated month-end-only job is unnecessary.
+
 concurrency:
   group: market-db
   cancel-in-progress: false
@@ -23,6 +33,10 @@ jobs:
           python-version: '3.11'
 
       - run: pip install yfinance duckdb pandas
+
+      - run: python scripts/update_monthly.py
+
+      - run: python scripts/mark_breakouts.py
 
       - run: python scripts/update_daily.py
 

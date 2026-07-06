@@ -176,6 +176,28 @@ def true_up_monthly_from_daily(con, min_daily_rows=15, mismatch_tol=0.005):
 
     print(f"True-up from daily_ohlc: corrected {fixed_total} monthly_ohlc rows.")
 
+def remove_orphaned_breakouts(con):
+    """
+    breakout_monthly only ever gains rows (mark_breakouts.py uses INSERT OR
+    IGNORE, never deletes) -- so if update_monthly.py's date label for a
+    given calendar month ever changes between runs (e.g. a still-forming
+    month gets a different placeholder date on different days), the OLD
+    label's row is never cleaned up and sits there as a stale duplicate
+    forever. Remove any breakout_monthly row whose (symbol, breakout_month)
+    no longer matches an actual monthly_ohlc row.
+    """
+    before = con.execute("SELECT COUNT(*) FROM breakout_monthly").fetchone()[0]
+    con.execute("""
+        DELETE FROM breakout_monthly b
+        WHERE NOT EXISTS (
+            SELECT 1 FROM monthly_ohlc m
+            WHERE m.symbol = b.symbol AND m.date = b.breakout_month
+        )
+    """)
+    after = con.execute("SELECT COUNT(*) FROM breakout_monthly").fetchone()[0]
+    if before != after:
+        print(f"Removed {before - after} orphaned breakout_monthly rows (stale month date labels).")
+
 def main():
     print(f"=== mark_breakouts.py started at {datetime.now()} ===")
 
@@ -183,6 +205,7 @@ def main():
     init_breakout_table(con)
 
     true_up_monthly_from_daily(con)
+    remove_orphaned_breakouts(con)
 
     symbols = con.execute(
         "SELECT DISTINCT symbol FROM monthly_ohlc ORDER BY symbol"
