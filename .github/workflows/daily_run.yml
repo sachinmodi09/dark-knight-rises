@@ -16,7 +16,8 @@ concurrency:
 
 on:
   schedule:
-    - cron: '30 10 * * 1-5'   # 4:00 PM IST (after market close)
+    - cron: '30 10 * * 1-5'   # 4:00 PM IST (after market close) -- full pipeline
+    - cron: '30 1 * * 1-5'    # 7:00 AM IST (before market open) -- resend scan on last night's data
   workflow_dispatch:
 
 jobs:
@@ -34,13 +35,21 @@ jobs:
 
       - run: pip install yfinance duckdb pandas
 
+      # The 7 AM run only re-sends the retest scan against whatever the 4 PM
+      # run already committed the night before -- there's no new market data
+      # yet, so skip re-fetching/re-marking. Manual (workflow_dispatch) runs
+      # always do the full pipeline.
       - run: python scripts/update_monthly.py
+        if: github.event.schedule != '30 1 * * 1-5'
 
       - run: python scripts/mark_breakouts.py
+        if: github.event.schedule != '30 1 * * 1-5'
 
       - run: python scripts/update_daily.py
+        if: github.event.schedule != '30 1 * * 1-5'
 
       - run: python scripts/enrich_breakouts.py
+        if: github.event.schedule != '30 1 * * 1-5'
 
       - name: Scan retest and send email
         env:
@@ -50,6 +59,7 @@ jobs:
         run: python scripts/scan_retest.py
 
       - name: Commit DB
+        if: github.event.schedule != '30 1 * * 1-5'
         run: |
           git config user.email "bot@github.com"
           git config user.name "PipelineBot"

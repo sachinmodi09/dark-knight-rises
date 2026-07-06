@@ -9,6 +9,7 @@ re-evaluated every run, not a history to persist. See retest_common.py.
 
 import os
 import duckdb
+import pandas as pd
 import smtplib
 from datetime import datetime, date
 from email.mime.text import MIMEText
@@ -81,10 +82,11 @@ def main():
 
     all_symbols = list(set(breakouts["symbol"].tolist() + preliminary_breakouts["symbol"].tolist()))
     price_map = get_todays_prices(con, all_symbols)
+    daily_lookup = rc.get_daily_since_breakout(con, pd.concat([breakouts, preliminary_breakouts], ignore_index=True))
     con.close()
 
-    candidates = rc.compute_candidates(breakouts, price_map, today)
-    preliminary_candidates = rc.compute_candidates(preliminary_breakouts, price_map, today)
+    candidates = rc.compute_candidates(breakouts, price_map, today, daily_lookup, tier="confirmed")
+    preliminary_candidates = rc.compute_candidates(preliminary_breakouts, price_map, today, daily_lookup, tier="preliminary")
     print(f"Retest candidates today: {len(candidates)} confirmed, {len(preliminary_candidates)} preliminary")
 
     subject = f"[Retest Alert] {len(candidates)} stocks in zone — {today}"
