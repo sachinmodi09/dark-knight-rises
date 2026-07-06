@@ -86,6 +86,46 @@ def get_active_breakouts(con):
         )
     """, [cutoff, current_month_start, today]).fetchdf()
 
+def get_preliminary_breakouts(con):
+    """
+    Breakouts from the CURRENT, still-in-progress calendar month -- the ones
+    get_active_breakouts() deliberately excludes. Backtesting the last 12
+    months showed 56% of breakouts retest to within 3% of breakout_day_low
+    before their month even closes, and a third of those hit +10% within 10
+    days (avg 5.7 days) -- waiting for month-end confirmation costs the
+    fastest, cheapest entries. The breakout trigger itself (close > the
+    PRIOR, already-confirmed month's ATH) doesn't depend on the current
+    month finishing -- only consolidation_months/prev_ath_month do, and
+    those aren't used here.
+
+    These are lower-confidence than get_active_breakouts() results (the
+    month could still end up being a down month overall, and mark_breakouts.py
+    hasn't run for it yet in the normal monthly cadence -- this only finds
+    something if a breakout_monthly row for the current month already
+    exists), so report them in a clearly separate, labeled section, never
+    merged into the confirmed list.
+    """
+    today = date.today()
+    current_month_start = today.replace(day=1)
+    return con.execute("""
+        SELECT
+            b.symbol, b.breakout_month, b.breakout_date,
+            b.breakout_day_open, b.breakout_day_high, b.breakout_day_low, b.breakout_day_close,
+            b.consolidation_months
+        FROM breakout_monthly b
+        WHERE b.status = 'active'
+        AND b.breakout_month >= ?
+        AND b.breakout_date IS NOT NULL
+        AND b.breakout_date <= ?
+        AND b.breakout_day_low IS NOT NULL
+        AND EXISTS (
+            SELECT 1 FROM daily_ohlc d
+            WHERE d.symbol = b.symbol
+            AND d.date > b.breakout_date
+            AND d.close > b.breakout_day_high
+        )
+    """, [current_month_start, today]).fetchdf()
+
 def compute_candidates(breakouts, price_map, as_of_date):
     """
     price_map: {symbol: {"price": float, "date": date}} -- current/latest price per
@@ -133,17 +173,8 @@ def compute_candidates(breakouts, price_map, as_of_date):
     # base is the stronger signal); pct_from_low only breaks ties within that.
     return sorted(candidates, key=lambda c: (-c["consolidation_months"], c["pct_from_low"]))
 
-def format_email_body(candidates, nifty_above, as_of_label):
-    lines = [
-        f"Retest Scan - {as_of_label}",
-        f"Nifty 500 Above 50 DMA : {nifty_above}",
-        f"Reporting window : 0% to {REPORT_ZONE_PCT:.0f}% above breakout day low "
-        f"(* = near the recommended {RECOMMENDED_ENTRY_PCT:.0f}% entry)",
-        f"Sorted by consolidation period, longest first",
-        f"Candidates : {len(candidates)}",
-        "",
-    ]
-
+def _format_candidate_lines(candidates):
+    lines = []
     for i, c in enumerate(candidates, 1):
         star = " *" if c["recommended"] else ""
         lines.extend([
@@ -156,4 +187,28 @@ def format_email_body(candidates, nifty_above, as_of_label):
             f"   Days Since BO : {c['days_since_breakout']}",
             "",
         ])
+    return lines
+
+def format_email_body(candidates, nifty_above, as_of_label, preliminary_candidates=None):
+    lines = [
+        f"Retest Scan - {as_of_label}",
+        f"Nifty 500 Above 50 DMA : {nifty_above}",
+        f"Reporting window : 0% to {REPORT_ZONE_PCT:.0f}% above breakout day low "
+        f"(* = near the recommended {RECOMMENDED_ENTRY_PCT:.0f}% entry)",
+        f"Sorted by consolidation period, longest first",
+        f"Candidates : {len(candidates)}",
+        "",
+    ]
+    lines.extend(_format_candidate_lines(candidates))
+
+    if preliminary_candidates:
+        lines.extend([
+            "=" * 50,
+            "PRELIMINARY -- breakout month not yet closed",
+            "Lower confidence: the month could still end down overall.",
+            f"Candidates : {len(preliminary_candidates)}",
+            "",
+        ])
+        lines.extend(_format_candidate_lines(preliminary_candidates))
+
     return "\n".join(lines)

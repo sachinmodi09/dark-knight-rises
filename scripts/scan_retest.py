@@ -70,21 +70,27 @@ def main():
         return
 
     breakouts = rc.get_active_breakouts(con)
+    preliminary_breakouts = rc.get_preliminary_breakouts(con)
     print(f"Active breakouts to scan: {len(breakouts)}")
+    print(f"Preliminary (month not yet closed) breakouts to scan: {len(preliminary_breakouts)}")
 
-    if breakouts.empty:
+    if breakouts.empty and preliminary_breakouts.empty:
         send_email(f"[Retest] No active breakouts ({today})", "No active breakouts found.")
         con.close()
         return
 
-    price_map = get_todays_prices(con, breakouts["symbol"].tolist())
+    all_symbols = list(set(breakouts["symbol"].tolist() + preliminary_breakouts["symbol"].tolist()))
+    price_map = get_todays_prices(con, all_symbols)
     con.close()
 
     candidates = rc.compute_candidates(breakouts, price_map, today)
-    print(f"Retest candidates today: {len(candidates)}")
+    preliminary_candidates = rc.compute_candidates(preliminary_breakouts, price_map, today)
+    print(f"Retest candidates today: {len(candidates)} confirmed, {len(preliminary_candidates)} preliminary")
 
     subject = f"[Retest Alert] {len(candidates)} stocks in zone — {today}"
-    body = rc.format_email_body(candidates, nifty_above, str(today))
+    if preliminary_candidates:
+        subject += f" (+{len(preliminary_candidates)} preliminary)"
+    body = rc.format_email_body(candidates, nifty_above, str(today), preliminary_candidates)
     send_email(subject, body)
 
     print("=== Done ===")
