@@ -47,6 +47,12 @@ tested with a time-based train/test split -- see local backtest research):
   volume_ratio was tested and deliberately excluded from both scores: it
   showed some signal in isolation but made the combined score less stable
   out-of-sample than leaving it out.
+
+Alerts fire once, on the day a stock's zone is first touched (the resting
+limit order's actual fill day) -- not on every subsequent day the stock
+happens to still be sitting inside the 0-5% reporting band. A stock that
+lingers near support for weeks would otherwise repeat in the mail daily
+with nothing new to act on.
 """
 
 import duckdb
@@ -181,13 +187,18 @@ def _score_features(bo, daily_lookup, as_of_date):
         <= zone ceiling), did that day's close end up back ABOVE the zone
         ceiling (a strong same-day bounce) rather than staying down near it?
         None if the zone hasn't been touched yet.
-    Returns (days_since_breakout, max_rally_pct, reversal_strong), or
-    (None, None, None) if there's not enough daily data to compute them.
+      - is_fresh_touch: was that first zone touch the most recent trading day
+        in the data (i.e. it just happened, this run), rather than some
+        earlier day the stock has simply been sitting near the zone ever
+        since? Used to alert once, on the day it actually happens, instead
+        of every day a stock happens to still be inside the reporting band.
+    Returns (days_since_breakout, max_rally_pct, reversal_strong, is_fresh_touch),
+    or (None, None, None, None) if there's not enough daily data to compute them.
     """
     sym = bo["symbol"]
     daily = daily_lookup.get(sym)
     if daily is None:
-        return None, None, None
+        return None, None, None, None
 
     bo_date = pd.to_datetime(bo["breakout_date"])
     bo_low = float(bo["breakout_day_low"])
@@ -195,11 +206,11 @@ def _score_features(bo, daily_lookup, as_of_date):
     after = daily[daily["date"] > bo_date]
     after = after[after["date"] <= pd.Timestamp(as_of_date)]
     if after.empty:
-        return None, None, None
+        return None, None, None, None
 
     departure_mask = after["close"] > bo_high
     if not departure_mask.any():
-        return None, None, None  # shouldn't happen given the confirmed-departure SQL guard, but be safe
+        return None, None, None, None  # shouldn't happen given the confirmed-departure SQL guard, but be safe
 
     days_since_breakout = (pd.to_datetime(as_of_date) - bo_date).days
     rally_peak = after.loc[departure_mask, "close"].max()
@@ -210,11 +221,13 @@ def _score_features(bo, daily_lookup, as_of_date):
     zone_limit = bo_low * (1 + RECOMMENDED_ENTRY_PCT / 100)
     zone_touch_mask = (post_departure["low"] <= zone_limit) & (post_departure["close"] > bo_low)
     reversal_strong = None
+    is_fresh_touch = False
     if zone_touch_mask.any():
         touch_idx = zone_touch_mask.idxmax()
         reversal_strong = bool(post_departure.loc[touch_idx, "close"] > zone_limit)
+        is_fresh_touch = touch_idx == after.index[-1]
 
-    return days_since_breakout, max_rally_pct, reversal_strong
+    return days_since_breakout, max_rally_pct, reversal_strong, is_fresh_touch
 
 def score_confirmed(breakout_strength, days_since_breakout, max_rally_pct, reversal_strong):
     """0-6. Validated out-of-sample: high scores here saw ~65-71% win rate vs ~25-33% at the bottom."""
@@ -278,8 +291,15 @@ def compute_candidates(breakouts, price_map, as_of_date, daily_lookup=None, tier
 
         score = None
         if daily_lookup is not None:
-            days_since_breakout, max_rally_pct, reversal_strong = _score_features(bo, daily_lookup, as_of_date)
+            days_since_breakout, max_rally_pct, reversal_strong, is_fresh_touch = \
+                _score_features(bo, daily_lookup, as_of_date)
             if days_since_breakout is not None:
+                # Only alert on the day the zone is actually first touched --
+                # not every subsequent day the stock happens to still be
+                # sitting inside the reporting band. Otherwise the same name
+                # repeats in the mail for days/weeks with nothing new to act on.
+                if not is_fresh_touch:
+                    continue
                 if tier == "confirmed":
                     score = score_confirmed(float(bo["breakout_strength"]), days_since_breakout, max_rally_pct, reversal_strong)
                 else:
