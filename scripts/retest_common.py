@@ -48,11 +48,12 @@ tested with a time-based train/test split -- see local backtest research):
   showed some signal in isolation but made the combined score less stable
   out-of-sample than leaving it out.
 
-Alerts fire once, on the day a stock's zone is first touched (the resting
-limit order's actual fill day) -- not on every subsequent day the stock
-happens to still be sitting inside the 0-5% reporting band. A stock that
-lingers near support for weeks would otherwise repeat in the mail daily
-with nothing new to act on.
+Alerts fire whenever a stock sets a new deepest pullback (today's low below
+every prior post-departure low) -- not on every day it merely still sits
+inside the 0-5% reporting band. This keeps re-alerting as a stock falls
+closer to the breakout low (a genuinely better entry each time), while a
+stock that lingers flat or bounces within a range it has already touched
+goes quiet, since there's nothing new to act on.
 """
 
 import duckdb
@@ -187,12 +188,17 @@ def _score_features(bo, daily_lookup, as_of_date):
         <= zone ceiling), did that day's close end up back ABOVE the zone
         ceiling (a strong same-day bounce) rather than staying down near it?
         None if the zone hasn't been touched yet.
-      - is_fresh_touch: was that first zone touch the most recent trading day
-        in the data (i.e. it just happened, this run), rather than some
-        earlier day the stock has simply been sitting near the zone ever
-        since? Used to alert once, on the day it actually happens, instead
-        of every day a stock happens to still be inside the reporting band.
-    Returns (days_since_breakout, max_rally_pct, reversal_strong, is_fresh_touch),
+      - is_new_low: does TODAY's low set a new deepest pullback since
+        departure (lower than every prior post-departure day), or is this
+        the first day back inside the reporting band? Alerting "once, on
+        first touch" was tried and is wrong -- if a stock only pokes the
+        zone at 4.8% and keeps falling toward the actual breakout low, that
+        deeper pullback is a BETTER entry (tighter stop, better reward) and
+        must still get alerted. A stock bouncing around a level it has
+        already touched has nothing new to offer, so only a fresh, deeper
+        low re-triggers the alert -- this is what actually fixes repetition
+        without silencing genuinely improving setups.
+    Returns (days_since_breakout, max_rally_pct, reversal_strong, is_new_low),
     or (None, None, None, None) if there's not enough daily data to compute them.
     """
     sym = bo["symbol"]
@@ -221,13 +227,21 @@ def _score_features(bo, daily_lookup, as_of_date):
     zone_limit = bo_low * (1 + RECOMMENDED_ENTRY_PCT / 100)
     zone_touch_mask = (post_departure["low"] <= zone_limit) & (post_departure["close"] > bo_low)
     reversal_strong = None
-    is_fresh_touch = False
     if zone_touch_mask.any():
         touch_idx = zone_touch_mask.idxmax()
         reversal_strong = bool(post_departure.loc[touch_idx, "close"] > zone_limit)
-        is_fresh_touch = touch_idx == after.index[-1]
 
-    return days_since_breakout, max_rally_pct, reversal_strong, is_fresh_touch
+    today_idx = after.index[-1]
+    prior_lows = post_departure[post_departure.index < today_idx]["low"]
+    today_low = post_departure.loc[today_idx, "low"] if today_idx in post_departure.index else None
+    if today_low is None:
+        is_new_low = False  # today isn't even post-departure yet
+    elif prior_lows.empty:
+        is_new_low = True  # first day since departure -- nothing to compare against
+    else:
+        is_new_low = bool(today_low < prior_lows.min())
+
+    return days_since_breakout, max_rally_pct, reversal_strong, is_new_low
 
 def score_confirmed(breakout_strength, days_since_breakout, max_rally_pct, reversal_strong):
     """0-6. Validated out-of-sample: high scores here saw ~65-71% win rate vs ~25-33% at the bottom."""
@@ -291,14 +305,16 @@ def compute_candidates(breakouts, price_map, as_of_date, daily_lookup=None, tier
 
         score = None
         if daily_lookup is not None:
-            days_since_breakout, max_rally_pct, reversal_strong, is_fresh_touch = \
+            days_since_breakout, max_rally_pct, reversal_strong, is_new_low = \
                 _score_features(bo, daily_lookup, as_of_date)
             if days_since_breakout is not None:
-                # Only alert on the day the zone is actually first touched --
-                # not every subsequent day the stock happens to still be
-                # sitting inside the reporting band. Otherwise the same name
-                # repeats in the mail for days/weeks with nothing new to act on.
-                if not is_fresh_touch:
+                # Only alert when today is a NEW deepest pullback since
+                # departure -- not just any day the stock happens to still be
+                # sitting inside the reporting band. A stock bouncing around
+                # a level already touched has nothing new to act on, but a
+                # stock still falling toward the breakout low is offering a
+                # genuinely better entry each time, and must keep alerting.
+                if not is_new_low:
                     continue
                 if tier == "confirmed":
                     score = score_confirmed(float(bo["breakout_strength"]), days_since_breakout, max_rally_pct, reversal_strong)
