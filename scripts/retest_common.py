@@ -192,23 +192,29 @@ def _score_features(bo, daily_lookup, as_of_date):
     Shared feature computation, all keyed off the breakout-day-OPEN touch
     (see module docstring for validation):
       - retest_depth_pct: % fall from the post-breakout rally peak close
-        to the touch day's low.
-      - retest_days: trading days from the rally peak to the touch day.
-      - dist_ema20_pct / dist_ema50_pct: touch-day close vs its 20/50-day EMA.
-      - is_new_low: does TODAY's low set a new deepest pullback since
-        departure (lower than every prior post-departure day)? Alerting
-        "once, on first touch" was tried and is wrong -- a stock still
-        falling toward the breakout low is offering a genuinely better
-        entry each time it does, and must keep alerting; a stock bouncing
-        around a level already touched has nothing new to offer.
-    Returns (retest_depth_pct, retest_days, dist_ema20_pct, dist_ema50_pct,
-    is_new_low), or (None, None, None, None, None) if there's not enough
-    daily data to compute them.
+        to TODAY's low.
+      - retest_days: trading days from the rally peak to today.
+      - dist_ema20_pct / dist_ema50_pct: today's close vs its 20/50-day EMA.
+    All four are computed relative to TODAY specifically -- not whenever
+    the stock first ever touched breakout_day_open. A stock can touch
+    breakout_day_open once, drift, then fall to an even deeper low weeks
+    later; that deeper day is a genuinely better (and different) entry,
+    with its own depth/speed/trend numbers, not a repeat of the original
+    touch's stats. Alerting "once, on first touch" was tried and is wrong
+    for the same reason -- a stock still falling toward the breakout low
+    offers a better entry each time, and must keep alerting; a stock
+    bouncing around a level already touched has nothing new to offer.
+
+    Returns (retest_depth_pct, retest_days, dist_ema20_pct, dist_ema50_pct)
+    only when TODAY itself is a valid, fresh touch (a new deepest pullback
+    since departure) -- otherwise (None, None, None, None): either the
+    stock hasn't touched breakout_day_open yet, or today isn't a new low
+    and there's nothing fresh to report.
     """
     sym = bo["symbol"]
     daily = daily_lookup.get(sym)
     if daily is None:
-        return None, None, None, None, None
+        return None, None, None, None
 
     bo_date = pd.to_datetime(bo["breakout_date"])
     bo_open = float(bo["breakout_day_open"])
@@ -217,44 +223,38 @@ def _score_features(bo, daily_lookup, as_of_date):
     after = daily[daily["date"] > bo_date]
     after = after[after["date"] <= pd.Timestamp(as_of_date)]
     if after.empty:
-        return None, None, None, None, None
+        return None, None, None, None
 
     departure_mask = after["close"] > bo_high
     if not departure_mask.any():
-        return None, None, None, None, None  # shouldn't happen given the confirmed-departure SQL guard, but be safe
+        return None, None, None, None  # shouldn't happen given the confirmed-departure SQL guard, but be safe
 
     departure_idx = departure_mask.idxmax()
-    post_departure = after.loc[departure_idx:]
-    # Touch search excludes the departure day itself: a day that both
-    # confirms departure AND dips back to bo_open (a same-day gap-down-then-
-    # rally) isn't a genuine post-rally pullback, just departure-day noise.
-    after_departure_day = post_departure[post_departure.index > departure_idx]
-    touch_mask = (after_departure_day["low"] <= bo_open) & (after_departure_day["close"] > bo_low)
-    if not touch_mask.any():
-        return None, None, None, None, None  # hasn't touched the breakout-day open yet
+    today_idx = after.index[-1]
+    if today_idx == departure_idx:
+        return None, None, None, None  # today IS the departure day -- not a post-rally pullback, just noise
 
-    touch_idx = touch_mask.idxmax()
-    rally_seg = post_departure.loc[:touch_idx]
+    today_row = after.loc[today_idx]
+    if not (today_row["low"] <= bo_open and today_row["close"] > bo_low):
+        return None, None, None, None  # today isn't touching breakout_day_open at all
+
+    # Fresh only if today is a NEW deepest low since departure (excluding
+    # the departure day itself, and excluding today).
+    post_departure = after.loc[departure_idx:]
+    after_departure_day = post_departure[(post_departure.index > departure_idx) & (post_departure.index != today_idx)]
+    if not after_departure_day.empty and today_row["low"] >= after_departure_day["low"].min():
+        return None, None, None, None  # already touched a level this low or lower before -- nothing new
+
+    rally_seg = post_departure.loc[:today_idx]
     peak_idx = rally_seg["close"].idxmax()
     rally_peak_close = rally_seg.loc[peak_idx, "close"]
-    touch_row = post_departure.loc[touch_idx]
 
-    retest_depth_pct = (rally_peak_close - touch_row["low"]) / rally_peak_close * 100
-    retest_days = after.index.get_loc(touch_idx) - after.index.get_loc(peak_idx)
-    dist_ema20_pct = (touch_row["close"] - touch_row["ema20"]) / touch_row["ema20"] * 100
-    dist_ema50_pct = (touch_row["close"] - touch_row["ema50"]) / touch_row["ema50"] * 100
+    retest_depth_pct = (rally_peak_close - today_row["low"]) / rally_peak_close * 100
+    retest_days = after.index.get_loc(today_idx) - after.index.get_loc(peak_idx)
+    dist_ema20_pct = (today_row["close"] - today_row["ema20"]) / today_row["ema20"] * 100
+    dist_ema50_pct = (today_row["close"] - today_row["ema50"]) / today_row["ema50"] * 100
 
-    today_idx = after.index[-1]
-    prior_lows = post_departure[post_departure.index < today_idx]["low"]
-    today_low = post_departure.loc[today_idx, "low"] if today_idx in post_departure.index else None
-    if today_low is None:
-        is_new_low = False  # today isn't even post-departure yet
-    elif prior_lows.empty:
-        is_new_low = True  # first day since departure -- nothing to compare against
-    else:
-        is_new_low = bool(today_low < prior_lows.min())
-
-    return round(retest_depth_pct, 2), retest_days, round(dist_ema20_pct, 2), round(dist_ema50_pct, 2), is_new_low
+    return round(retest_depth_pct, 2), retest_days, round(dist_ema20_pct, 2), round(dist_ema50_pct, 2)
 
 def score_confirmed(breakout_strength, retest_depth_pct, retest_days, dist_ema20_pct, dist_ema50_pct):
     """0-7. See module docstring for the significance testing behind each cutoff."""
@@ -318,17 +318,12 @@ def compute_candidates(breakouts, price_map, as_of_date, daily_lookup=None, tier
 
         score = None
         if daily_lookup is not None:
-            retest_depth_pct, retest_days, dist_ema20_pct, dist_ema50_pct, is_new_low = \
+            retest_depth_pct, retest_days, dist_ema20_pct, dist_ema50_pct = \
                 _score_features(bo, daily_lookup, as_of_date)
             if retest_depth_pct is None:
-                continue  # hasn't touched breakout_day_open yet -- not a candidate at all
-            # Only alert when today is a NEW deepest pullback since departure
-            # -- not just any day the stock happens to still be above
-            # breakout_day_low. A stock bouncing around a level already
-            # touched has nothing new to act on, but a stock still falling
-            # toward the breakout low is offering a genuinely better entry
-            # each time, and must keep alerting.
-            if not is_new_low:
+                # Either hasn't touched breakout_day_open yet, or today isn't
+                # a fresh (new-deepest-low) touch -- see _score_features
+                # docstring. Either way, nothing to alert on today.
                 continue
             if tier == "confirmed":
                 score = score_confirmed(float(bo["breakout_strength"]), retest_depth_pct, retest_days, dist_ema20_pct, dist_ema50_pct)
