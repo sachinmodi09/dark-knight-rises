@@ -30,11 +30,11 @@ never fired and wasn't testing what actually separates winners. The
 features below are what held up with real statistical significance
 (Welch's t-test, winners n=53 vs stopped-out n=205):
   - retest_depth_pct: how far price fell from its post-breakout rally
-    peak to the breakout-day-open touch. Winners 11.25% vs losers 15.24%
+    peak to the approach day's low. Winners 11.25% vs losers 15.24%
     (p=0.005) -- a shallow pullback beats a deep one.
-  - retest_days: trading days from the rally peak to the touch. Winners
+  - retest_days: trading days from the rally peak to the approach. Winners
     10.6 vs losers 22.4 (p=0.0002) -- a quick bounce beats a slow, weak one.
-  - dist_ema20_pct / dist_ema50_pct: touch-day close vs its own 20- and
+  - dist_ema20_pct / dist_ema50_pct: approach-day close vs its own 20- and
     50-day EMA. Winners sit above both (+0.87%, +5.81%); losers are
     already below the 20 EMA on average (-2.46%) and barely above the 50
     (+1.10%) (p=0.0008, p=0.002) -- the winners' trend hadn't cracked yet.
@@ -52,11 +52,18 @@ features below are what held up with real statistical significance
   ever found (see git history). These two scores are NOT on the same
   scale and must never be compared directly.
 
-Alerts fire whenever a stock sets a new deepest pullback (today's low
-below every prior post-departure low) -- not on every day it merely still
-sits above breakout day low. This re-alerts as a stock falls closer to
-the breakout low (a genuinely better entry each time) while staying quiet
-for a stock that lingers flat or bounces within a range already touched.
+Alerts fire when price gets within APPROACH_PCT of breakout_day_open (not
+only on the exact touch), whenever that's a new closest approach since
+departure -- not on every day it merely still sits above breakout day
+low. The pipeline runs once, after close; if it only alerted on the exact
+touch, you couldn't react until the next trading day, and by then price
+often already moved on (checked empirically: 3 of 10 real signals in one
+window never came back to the exact entry after the earliest day you
+could have placed the order). Alerting on approach means the resting
+limit order goes in BEFORE the touch happens, so whenever it does -- same
+day or later -- it just fills. This re-alerts as a stock falls closer
+(a genuinely better entry each time) while staying quiet for a stock that
+lingers flat or bounces within a range it has already gotten this close to.
 """
 
 import duckdb
@@ -68,6 +75,12 @@ INDEX_SYMBOL = "NIFTY500"
 RETEST_DEPTH_MAX_PCT = 12.0   # winners avg 11.25%, losers avg 15.24%
 RETEST_DAYS_MAX = 15          # winners avg 10.6 days, losers avg 22.4 days
 EMA50_MIN_PCT = 3.0           # winners avg +5.81% above 50 EMA, losers avg +1.10%
+APPROACH_PCT = 1.0            # alert when price is within this % above breakout_day_open,
+                               # not only on the exact touch -- see _score_features docstring.
+                               # Tested 1/2/3/5%: 1% keeps volume near the old ~1/day pace
+                               # (15 alerts / 10 days) while still giving the resting limit
+                               # order days of lead time before the actual touch, instead of
+                               # the hard next-day-only window an exact-touch trigger forces.
 
 def is_nifty500_above_50dma(con):
     df = con.execute("""
@@ -189,27 +202,34 @@ def get_daily_since_breakout(con, breakouts):
 
 def _score_features(bo, daily_lookup, as_of_date):
     """
-    Shared feature computation, all keyed off the breakout-day-OPEN touch
-    (see module docstring for validation):
+    Shared feature computation, keyed off the breakout-day-OPEN approach
+    (see module docstring for validation of the underlying entry model):
       - retest_depth_pct: % fall from the post-breakout rally peak close
         to TODAY's low.
       - retest_days: trading days from the rally peak to today.
       - dist_ema20_pct / dist_ema50_pct: today's close vs its 20/50-day EMA.
     All four are computed relative to TODAY specifically -- not whenever
-    the stock first ever touched breakout_day_open. A stock can touch
-    breakout_day_open once, drift, then fall to an even deeper low weeks
-    later; that deeper day is a genuinely better (and different) entry,
-    with its own depth/speed/trend numbers, not a repeat of the original
-    touch's stats. Alerting "once, on first touch" was tried and is wrong
-    for the same reason -- a stock still falling toward the breakout low
-    offers a better entry each time, and must keep alerting; a stock
-    bouncing around a level already touched has nothing new to offer.
+    the stock first got close. A stock can approach breakout_day_open
+    once, drift, then fall to an even deeper low weeks later; that deeper
+    day is a genuinely better (and different) entry, with its own
+    depth/speed/trend numbers, not a repeat of the original approach's stats.
+
+    Trigger is APPROACH_PCT above breakout_day_open, not an exact touch.
+    The alert only reaches you after close (the pipeline runs once, end
+    of day) -- if it only fired on the day price actually touched the
+    entry, you couldn't act until the NEXT day at the earliest, and by
+    then price has often already moved on (checked empirically: 3 of 10
+    real signals over one 10-day window never came back down to the exact
+    touch price after the earliest day you could have reacted). Alerting
+    on approach instead means you place the resting limit order BEFORE
+    the touch happens, so whenever it does -- that same day or later --
+    it just fills, with no lag.
 
     Returns (retest_depth_pct, retest_days, dist_ema20_pct, dist_ema50_pct)
-    only when TODAY itself is a valid, fresh touch (a new deepest pullback
-    since departure) -- otherwise (None, None, None, None): either the
-    stock hasn't touched breakout_day_open yet, or today isn't a new low
-    and there's nothing fresh to report.
+    only when TODAY itself is a fresh approach (a new closest point to
+    breakout_day_open since departure) -- otherwise (None, None, None,
+    None): either the stock hasn't gotten close yet, or today isn't a new
+    closest approach and there's nothing fresh to report.
     """
     sym = bo["symbol"]
     daily = daily_lookup.get(sym)
@@ -220,6 +240,7 @@ def _score_features(bo, daily_lookup, as_of_date):
     bo_open = float(bo["breakout_day_open"])
     bo_low = float(bo["breakout_day_low"])
     bo_high = float(bo["breakout_day_high"])
+    approach_limit = bo_open * (1 + APPROACH_PCT / 100)
     after = daily[daily["date"] > bo_date]
     after = after[after["date"] <= pd.Timestamp(as_of_date)]
     if after.empty:
@@ -235,15 +256,15 @@ def _score_features(bo, daily_lookup, as_of_date):
         return None, None, None, None  # today IS the departure day -- not a post-rally pullback, just noise
 
     today_row = after.loc[today_idx]
-    if not (today_row["low"] <= bo_open and today_row["close"] > bo_low):
-        return None, None, None, None  # today isn't touching breakout_day_open at all
+    if not (today_row["low"] <= approach_limit and today_row["close"] > bo_low):
+        return None, None, None, None  # today isn't near breakout_day_open at all
 
-    # Fresh only if today is a NEW deepest low since departure (excluding
-    # the departure day itself, and excluding today).
+    # Fresh only if today is a NEW closest approach since departure
+    # (excluding the departure day itself, and excluding today).
     post_departure = after.loc[departure_idx:]
     after_departure_day = post_departure[(post_departure.index > departure_idx) & (post_departure.index != today_idx)]
     if not after_departure_day.empty and today_row["low"] >= after_departure_day["low"].min():
-        return None, None, None, None  # already touched a level this low or lower before -- nothing new
+        return None, None, None, None  # already gotten this close or closer before -- nothing new
 
     rally_seg = post_departure.loc[:today_idx]
     peak_idx = rally_seg["close"].idxmax()
@@ -386,7 +407,8 @@ def format_email_body(candidates, nifty_above, as_of_label, preliminary_candidat
     lines = [
         f"Retest Scan - {as_of_label}",
         f"Nifty 500 Above 50 DMA : {nifty_above}",
-        f"Entry : breakout day OPEN.  Stop : breakout day LOW (close basis).  No fixed target -- hold until stop.",
+        f"Entry : breakout day OPEN (place a RESTING limit order here, may not fill today).",
+        f"Stop : breakout day LOW (close basis).  No fixed target -- hold until stop.",
         f"CONFIRMED sorted by score (0-7, validated), consolidation as tiebreaker",
         f"Candidates : {len(candidates)}",
         "",
