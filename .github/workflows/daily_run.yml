@@ -1,14 +1,15 @@
 name: Daily Pipeline
 
-# One single run, once a day after close (or manually anytime via
-# workflow_dispatch): refreshes this month's monthly candle, detects any
-# breakouts (confirmed from past closed months, or preliminary from the
-# current month), refreshes daily prices, enriches breakout days, and scans
-# for retests. update_monthly.py and update_daily.py both overwrite/upsert
-# by (symbol, date) -- safe to run daily instead of monthly, never creates
-# duplicates. This replaces the separate monthly_run.yml: running
-# update_monthly.py + mark_breakouts.py every day naturally covers the last
-# day of the month too, so a dedicated month-end-only job is unnecessary.
+# One run a day, after market close: refreshes this month's monthly candle,
+# detects any breakouts (confirmed from past closed months, or preliminary
+# from the current month), refreshes daily prices, enriches breakout days,
+# and scans for retests. GitHub's free-tier scheduled crons don't fire at
+# the exact time requested -- in practice this "4 PM IST" trigger has been
+# landing closer to 7 PM IST, which is fine: the goal is one alert with the
+# full day's settled data, not a specific minute. update_daily.py's
+# safe_cutoff_date() guard means a late-firing run is safe either way -- it
+# will never write a live/partial bar as the day's close, no matter when
+# the job actually starts.
 
 concurrency:
   group: market-db
@@ -16,8 +17,7 @@ concurrency:
 
 on:
   schedule:
-    - cron: '30 10 * * 1-5'   # 4:00 PM IST (after market close) -- full pipeline
-    - cron: '30 1 * * 1-5'    # 7:00 AM IST (before market open) -- resend scan on last night's data
+    - cron: '30 10 * * 1-5'   # 4:00 PM IST target (observed actual: ~7 PM IST)
   workflow_dispatch:
 
 jobs:
@@ -35,21 +35,13 @@ jobs:
 
       - run: pip install yfinance duckdb pandas
 
-      # The 7 AM run only re-sends the retest scan against whatever the 4 PM
-      # run already committed the night before -- there's no new market data
-      # yet, so skip re-fetching/re-marking. Manual (workflow_dispatch) runs
-      # always do the full pipeline.
       - run: python scripts/update_monthly.py
-        if: github.event.schedule != '30 1 * * 1-5'
 
       - run: python scripts/mark_breakouts.py
-        if: github.event.schedule != '30 1 * * 1-5'
 
       - run: python scripts/update_daily.py
-        if: github.event.schedule != '30 1 * * 1-5'
 
       - run: python scripts/enrich_breakouts.py
-        if: github.event.schedule != '30 1 * * 1-5'
 
       - name: Scan retest and send email
         env:
@@ -59,7 +51,6 @@ jobs:
         run: python scripts/scan_retest.py
 
       - name: Commit DB
-        if: github.event.schedule != '30 1 * * 1-5'
         run: |
           git config user.email "bot@github.com"
           git config user.name "PipelineBot"
