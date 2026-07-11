@@ -10,18 +10,43 @@ been fetched before), backfills that symbol's full history from the
 start of that month instead of only pulling the last few days. Without
 this, enrich_breakouts.py cannot find the true breakout day for new
 breakouts because the early days of the month were never downloaded.
+
+GitHub Actions scheduled crons are not guaranteed to fire on time -- this
+job has been observed running hours late, including during the NEXT day's
+market session. yfinance's "daily" interval returns a live, still-forming
+bar for whatever session is currently open, with close = the last traded
+price at fetch time, not a settled EOD close. If that partial bar gets
+written to daily_ohlc, every downstream check that trusts "close" as final
+(breakout departure, invalidation, scoring) can fire on a mid-session
+price that has nothing to do with where the stock actually closed -- this
+produced a real false alert (CHOLAFIN, 2026-07-07) before being corrected
+by the next day's run. Guard against it by never accepting a row for a
+session that isn't confirmed closed yet (see safe_cutoff_date() below).
 """
 
 import time
 import duckdb
 import pandas as pd
 import yfinance as yf
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone, time as dtime
 
 DB_PATH = "data/market.db"
 INDEX_TICKER = "^CRSLDX"
 INDEX_SYMBOL = "NIFTY500"
 COVERAGE_TOLERANCE_DAYS = 2  # allow this many fewer rows than the index before flagging as incomplete
+IST = timezone(timedelta(hours=5, minutes=30))
+MARKET_CLOSE_IST = dtime(15, 30)
+
+def safe_cutoff_date():
+    """
+    Latest calendar date (IST) trustworthy as a genuinely settled close.
+    "Today" only counts once the market has actually closed for the day;
+    otherwise fall back to yesterday, since today's bar so far is live.
+    """
+    now_ist = datetime.now(timezone.utc).astimezone(IST)
+    if now_ist.time() >= MARKET_CLOSE_IST:
+        return now_ist.date()
+    return now_ist.date() - timedelta(days=1)
 
 def get_index_trading_days(con, year_month):
     """Count of index trading days in a given YYYY-MM, used as ground truth for expected coverage."""
@@ -74,7 +99,7 @@ def download_batch(batch_ns, **kwargs):
         time.sleep(3)
         return None
 
-def rows_from_raw(raw, batch, batch_ns):
+def rows_from_raw(raw, batch, batch_ns, cutoff):
     rows = []
     for sym, sym_ns in zip(batch, batch_ns):
         try:
@@ -86,6 +111,8 @@ def rows_from_raw(raw, batch, batch_ns):
             df.index = pd.to_datetime(df.index)
 
             for dt, row in df.iterrows():
+                if dt.date() > cutoff:
+                    continue  # session not confirmed closed yet -- see safe_cutoff_date()
                 rows.append({
                     "symbol": sym,
                     "date": dt.date(),
@@ -113,6 +140,9 @@ def insert_rows(con, rows):
 
 def main():
     print(f"=== update_daily.py started at {datetime.now()} ===")
+
+    cutoff_date = safe_cutoff_date()
+    print(f"Settlement cutoff: accepting data through {cutoff_date} (IST) only.")
 
     con = duckdb.connect(DB_PATH)
 
@@ -150,7 +180,7 @@ def main():
         if raw is None:
             continue
 
-        rows = rows_from_raw(raw, batch, batch_ns)
+        rows = rows_from_raw(raw, batch, batch_ns, cutoff_date)
         inserted_total += insert_rows(con, rows)
         time.sleep(1)
 
@@ -170,7 +200,7 @@ def main():
             if raw is None:
                 continue
 
-            rows = rows_from_raw(raw, batch, batch_ns)
+            rows = rows_from_raw(raw, batch, batch_ns, cutoff_date)
             inserted_total += insert_rows(con, rows)
             time.sleep(2)
 
@@ -195,6 +225,8 @@ def main():
 
         idx_rows = []
         for dt, row in idx_raw.iterrows():
+            if dt.date() > cutoff_date:
+                continue  # session not confirmed closed yet
             idx_rows.append({
                 "symbol": INDEX_SYMBOL,
                 "date": dt.date(),
