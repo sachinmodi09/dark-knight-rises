@@ -102,13 +102,18 @@ def build_live_daily_lookup(daily_lookup, live_quotes, today):
         daily_lookup[sym] = combined
     return daily_lookup
 
-def main():
+def main(force=False):
     now = now_ist()
-    print(f"=== scan_retest_live.py started at {now} (IST) ===")
+    print(f"=== scan_retest_live.py started at {now} (IST){' [FORCED TEST RUN]' if force else ''} ===")
 
-    if not is_market_hours(now):
+    if not force and not is_market_hours(now):
         print("Outside market hours. Skipping.")
         return
+
+    if force and not is_market_hours(now):
+        print("NOTE: forced run outside market hours -- yfinance will return the most recent "
+              "completed session's data (e.g. Friday's, if run on a weekend), not genuinely live "
+              "prices. Useful for testing the pipeline mechanics, not for a real trading decision.")
 
     today = now.date()  # derived from IST now, not the container's local date
     con = duckdb.connect(DB_PATH, read_only=True)
