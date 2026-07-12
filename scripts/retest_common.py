@@ -67,6 +67,7 @@ lingers flat or bounces within a range it has already gotten this close to.
 """
 
 import duckdb
+import numpy as np
 import pandas as pd
 from datetime import date, timedelta
 
@@ -330,6 +331,22 @@ def compute_candidates(breakouts, price_map, as_of_date, daily_lookup=None, tier
 
         pct_from_low = (current_price - bo_day_low) / bo_day_low * 100
 
+        # Trading days elapsed, not calendar days -- (as_of_date - bo_date).days
+        # counts weekends as if the market were open, inflating the figure
+        # (e.g. a Thursday breakout checked the following Sunday reads as "3
+        # days" when only 1 trading day -- Friday -- actually happened). Count
+        # real rows in the daily history when available; fall back to a
+        # weekday-only approximation (still excludes weekends, just not
+        # market holidays) when daily_lookup wasn't supplied.
+        if daily_lookup is not None and sym in daily_lookup:
+            sym_daily = daily_lookup[sym]
+            trading_days_since_breakout = int((
+                (sym_daily["date"] > pd.Timestamp(bo_date)) &
+                (sym_daily["date"] <= pd.Timestamp(as_of_date))
+            ).sum())
+        else:
+            trading_days_since_breakout = int(np.busday_count(bo_date, as_of_date))
+
         # Trade plan: entry at the breakout day's open (validated reference,
         # see module docstring), stop at breakout day low on a CLOSE basis.
         # Deliberately no target line -- see module docstring on why a
@@ -359,7 +376,7 @@ def compute_candidates(breakouts, price_map, as_of_date, daily_lookup=None, tier
             "breakout_date": bo_date,
             "current_price": round(current_price, 2),
             "pct_from_low": round(pct_from_low, 2),
-            "days_since_breakout": (as_of_date - bo_date).days,
+            "days_since_breakout": trading_days_since_breakout,
             "breakout_open": float(bo["breakout_day_open"]),
             "breakout_high": float(bo["breakout_day_high"]),
             "breakout_low": bo_day_low,
@@ -389,6 +406,7 @@ def _format_candidate_lines(candidates, max_score):
         lines.extend([
             f"{i}. {c['symbol']}  --  Score : {score_str}  --  Consolidation : {c['consolidation_months']} months",
             f"   Current Price : {c['current_price']:.2f}",
+            f"   Breakout Date : {c['breakout_date']}",
             f"   Breakout      : "
             f"O:{c['breakout_open']:.2f} H:{c['breakout_high']:.2f} "
             f"L:{c['breakout_low']:.2f} C:{c['breakout_close']:.2f}",
@@ -398,7 +416,7 @@ def _format_candidate_lines(candidates, max_score):
             f"   Retest Depth : {c['retest_depth_pct']}%   Retest Days : {c['retest_days']}   "
             f"vs 20EMA : {c['dist_ema20_pct']}%   vs 50EMA : {c['dist_ema50_pct']}%"
             if c["retest_depth_pct"] is not None else "   (unscored -- no daily history available)",
-            f"   Days Since BO : {c['days_since_breakout']}",
+            f"   Trading Days Since BO : {c['days_since_breakout']}",
             "",
         ])
     return lines
