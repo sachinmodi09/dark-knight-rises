@@ -1,0 +1,143 @@
+"""
+scan_retest_live.py
+Runs during market hours, from Google Cloud Functions (Cloud Scheduler
+trigger), NOT GitHub Actions. Reads breakout_monthly (fact, read-only) and
+fetches LIVE intraday bars per active/preliminary breakout symbol directly
+from Yahoo Finance -- it never writes to daily_ohlc or any other table, so
+it can't reintroduce the old bug where intraday runs corrupted the
+official end-of-day close. This is purely a read + email side channel.
+
+Unlike the once-daily EOD scan (scan_retest.py), this fetches each
+symbol's full intraday range so far today (not just the latest tick) --
+a stock that dipped into the entry zone at 10 AM and rallied away by
+the time this runs would be invisible if we only looked at the current
+price. The intraday low-so-far is appended as a synthetic "today" row
+onto each symbol's historical daily series, so the exact same validated
+_score_features/compute_candidates logic the EOD scan uses can evaluate
+it -- no separate/divergent scoring path to maintain.
+
+Market-hours guard: skips (no email, no API calls) outside NSE trading
+hours on weekdays, so a stray/early/late Scheduler firing is a no-op.
+"""
+
+import time
+import duckdb
+import pandas as pd
+import yfinance as yf
+from datetime import datetime, date, time as dtime
+
+import retest_common as rc
+from scan_retest import send_email  # reuse the same email sender
+
+DB_PATH = rc.DB_PATH
+BATCH_SIZE = 50
+MARKET_OPEN = dtime(9, 15)
+MARKET_CLOSE = dtime(15, 30)
+
+def is_market_hours(now):
+    if now.weekday() >= 5:  # Sat/Sun
+        return False
+    return MARKET_OPEN <= now.time() <= MARKET_CLOSE
+
+def get_live_intraday(symbols):
+    """
+    Today's low-so-far and latest price per symbol, from live intraday
+    bars -- read-only, never written to daily_ohlc.
+    """
+    result = {}
+    for i in range(0, len(symbols), BATCH_SIZE):
+        batch = symbols[i:i + BATCH_SIZE]
+        batch_ns = [s + ".NS" for s in batch]
+        try:
+            raw = yf.download(
+                tickers=batch_ns, period="1d", interval="5m",
+                group_by="ticker", auto_adjust=True, threads=True, progress=False
+            )
+        except Exception as e:
+            print(f"  Batch fetch failed: {e}")
+            time.sleep(2)
+            continue
+
+        for sym, sym_ns in zip(batch, batch_ns):
+            try:
+                df = raw.copy() if len(batch_ns) == 1 else raw[sym_ns].copy()
+                df = df.dropna(subset=["Close"])
+                if df.empty:
+                    continue
+                result[sym] = {"low": float(df["Low"].min()), "close": float(df["Close"].iloc[-1])}
+            except Exception:
+                continue
+        time.sleep(0.5)
+    return result
+
+def build_live_daily_lookup(daily_lookup, live_quotes, today):
+    """
+    Append a synthetic "today" row (from live intraday data) onto each
+    symbol's historical daily series, so _score_features can evaluate
+    today's live approach exactly like it would a settled EOD day.
+    """
+    today_ts = pd.Timestamp(today)
+    for sym, quote in live_quotes.items():
+        if sym not in daily_lookup:
+            continue
+        d = daily_lookup[sym]
+        if not d.empty and d.iloc[-1]["date"] == today_ts:
+            continue  # already has a settled row for today -- don't duplicate
+        new_row = pd.DataFrame([{
+            "date": today_ts, "high": quote["close"], "low": quote["low"], "close": quote["close"],
+        }])
+        combined = pd.concat([d, new_row], ignore_index=True)
+        combined["ema20"] = combined["close"].ewm(span=20, adjust=False).mean()
+        combined["ema50"] = combined["close"].ewm(span=50, adjust=False).mean()
+        daily_lookup[sym] = combined
+    return daily_lookup
+
+def main():
+    now = datetime.now()
+    print(f"=== scan_retest_live.py started at {now} ===")
+
+    if not is_market_hours(now):
+        print("Outside market hours. Skipping.")
+        return
+
+    today = date.today()
+    con = duckdb.connect(DB_PATH, read_only=True)
+    nifty_above = rc.is_nifty500_above_50dma(con)
+    breakouts = rc.get_active_breakouts(con)
+    prelim = rc.get_preliminary_breakouts(con)
+    all_bo = pd.concat([breakouts, prelim], ignore_index=True)
+    daily_lookup = rc.get_daily_since_breakout(con, all_bo)
+    con.close()
+
+    print(f"Active breakouts: {len(breakouts)}, preliminary: {len(prelim)}")
+    if all_bo.empty:
+        print("Nothing to scan. Skipping.")
+        return
+
+    if not nifty_above:
+        print("Nifty 500 below 50DMA. No live signals.")
+        return
+
+    live_quotes = get_live_intraday(all_bo["symbol"].unique().tolist())
+    print(f"Live quotes fetched: {len(live_quotes)}")
+
+    daily_lookup = build_live_daily_lookup(daily_lookup, live_quotes, today)
+    price_map = {sym: {"price": q["close"], "date": today} for sym, q in live_quotes.items()}
+
+    candidates = rc.compute_candidates(breakouts, price_map, today, daily_lookup, tier="confirmed")
+    pcandidates = rc.compute_candidates(prelim, price_map, today, daily_lookup, tier="preliminary")
+    print(f"Live candidates: {len(candidates)} confirmed, {len(pcandidates)} preliminary")
+
+    if not candidates and not pcandidates:
+        print("Nothing new intraday. No email sent.")
+        return
+
+    as_of_label = now.strftime("%Y-%m-%d %H:%M") + " (LIVE, intraday)"
+    subject = f"[Retest LIVE] {len(candidates) + len(pcandidates)} approaching entry — {as_of_label}"
+    body = rc.format_email_body(candidates, nifty_above, as_of_label, pcandidates)
+    send_email(subject, body)
+
+    print("=== Done ===")
+
+if __name__ == "__main__":
+    main()
