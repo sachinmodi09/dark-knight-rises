@@ -49,35 +49,59 @@ def is_market_hours(now):
         return False
     return MARKET_OPEN <= now.time() <= MARKET_CLOSE
 
+def _fetch_batch(batch):
+    """One batch download attempt. Returns {symbol: {low, close}} for
+    whatever succeeded; symbols that fail (missing data, transient errors
+    like yfinance's internal SQLite cache lock under concurrent threads)
+    are simply absent from the result, not raised."""
+    result = {}
+    batch_ns = [s + ".NS" for s in batch]
+    try:
+        raw = yf.download(
+            tickers=batch_ns, period="1d", interval="5m",
+            group_by="ticker", auto_adjust=True, threads=True, progress=False
+        )
+    except Exception as e:
+        print(f"  Batch fetch failed: {e}")
+        return result
+
+    for sym, sym_ns in zip(batch, batch_ns):
+        try:
+            df = raw.copy() if len(batch_ns) == 1 else raw[sym_ns].copy()
+            df = df.dropna(subset=["Close"])
+            if df.empty:
+                continue
+            result[sym] = {"low": float(df["Low"].min()), "close": float(df["Close"].iloc[-1])}
+        except Exception:
+            continue
+    return result
+
 def get_live_intraday(symbols):
     """
     Today's low-so-far and latest price per symbol, from live intraday
-    bars -- read-only, never written to daily_ohlc.
+    bars -- read-only, never written to daily_ohlc. Symbols that fail on
+    the first pass (e.g. a transient SQLite cache lock under yfinance's
+    concurrent threaded fetch) get one retry as a follow-up pass, since
+    that kind of collision usually clears on its own a moment later.
     """
     result = {}
     for i in range(0, len(symbols), BATCH_SIZE):
         batch = symbols[i:i + BATCH_SIZE]
-        batch_ns = [s + ".NS" for s in batch]
-        try:
-            raw = yf.download(
-                tickers=batch_ns, period="1d", interval="5m",
-                group_by="ticker", auto_adjust=True, threads=True, progress=False
-            )
-        except Exception as e:
-            print(f"  Batch fetch failed: {e}")
-            time.sleep(2)
-            continue
-
-        for sym, sym_ns in zip(batch, batch_ns):
-            try:
-                df = raw.copy() if len(batch_ns) == 1 else raw[sym_ns].copy()
-                df = df.dropna(subset=["Close"])
-                if df.empty:
-                    continue
-                result[sym] = {"low": float(df["Low"].min()), "close": float(df["Close"].iloc[-1])}
-            except Exception:
-                continue
+        result.update(_fetch_batch(batch))
         time.sleep(0.5)
+
+    missing = [s for s in symbols if s not in result]
+    if missing:
+        print(f"  {len(missing)} symbol(s) failed on first pass, retrying once: {missing}")
+        time.sleep(2)
+        for i in range(0, len(missing), BATCH_SIZE):
+            batch = missing[i:i + BATCH_SIZE]
+            result.update(_fetch_batch(batch))
+            time.sleep(0.5)
+        still_missing = [s for s in missing if s not in result]
+        if still_missing:
+            print(f"  Still missing after retry: {still_missing}")
+
     return result
 
 def build_live_daily_lookup(daily_lookup, live_quotes, today):
@@ -102,7 +126,17 @@ def build_live_daily_lookup(daily_lookup, live_quotes, today):
         daily_lookup[sym] = combined
     return daily_lookup
 
-def main(force=False):
+def main(force=False, approach_pct_override=None):
+    if approach_pct_override is not None:
+        # Test-only: temporarily widen (or narrow) the trigger threshold so
+        # a validation run actually surfaces candidates to look at, instead
+        # of legitimately finding nothing. Each Cloud Function invocation is
+        # a fresh process, so this never leaks into any other run -- it's
+        # not persisted anywhere. Do not use this for real trading decisions.
+        rc.APPROACH_PCT = approach_pct_override
+        print(f"NOTE: APPROACH_PCT overridden to {approach_pct_override}% for this test run only "
+              f"(validated production default is 1.0%).")
+
     now = now_ist()
     print(f"=== scan_retest_live.py started at {now} (IST){' [FORCED TEST RUN]' if force else ''} ===")
 
