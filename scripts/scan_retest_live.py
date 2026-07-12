@@ -24,7 +24,7 @@ import time
 import duckdb
 import pandas as pd
 import yfinance as yf
-from datetime import datetime, date, time as dtime
+from datetime import datetime, date, time as dtime, timezone, timedelta
 
 import retest_common as rc
 from scan_retest import send_email  # reuse the same email sender
@@ -33,6 +33,16 @@ DB_PATH = rc.DB_PATH
 BATCH_SIZE = 50
 MARKET_OPEN = dtime(9, 15)
 MARKET_CLOSE = dtime(15, 30)
+IST = timezone(timedelta(hours=5, minutes=30))
+
+def now_ist():
+    """
+    Cloud Functions/Cloud Run containers run in UTC by default. Market hours
+    are IST-defined (9:15-15:30) -- comparing a naive datetime.now() against
+    those boundaries silently checks the wrong 5.5-hour window on any
+    platform not already set to IST. Always convert explicitly.
+    """
+    return datetime.now(timezone.utc).astimezone(IST)
 
 def is_market_hours(now):
     if now.weekday() >= 5:  # Sat/Sun
@@ -93,14 +103,14 @@ def build_live_daily_lookup(daily_lookup, live_quotes, today):
     return daily_lookup
 
 def main():
-    now = datetime.now()
-    print(f"=== scan_retest_live.py started at {now} ===")
+    now = now_ist()
+    print(f"=== scan_retest_live.py started at {now} (IST) ===")
 
     if not is_market_hours(now):
         print("Outside market hours. Skipping.")
         return
 
-    today = date.today()
+    today = now.date()  # derived from IST now, not the container's local date
     con = duckdb.connect(DB_PATH, read_only=True)
     nifty_above = rc.is_nifty500_above_50dma(con)
     breakouts = rc.get_active_breakouts(con)
