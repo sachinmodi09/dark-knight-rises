@@ -54,16 +54,27 @@ features below are what held up with real statistical significance
 
 Alerts fire when price gets within APPROACH_PCT of breakout_day_open (not
 only on the exact touch), whenever that's a new closest approach since
-departure -- not on every day it merely still sits above breakout day
-low. The pipeline runs once, after close; if it only alerted on the exact
-touch, you couldn't react until the next trading day, and by then price
-often already moved on (checked empirically: 3 of 10 real signals in one
-window never came back to the exact entry after the earliest day you
-could have placed the order). Alerting on approach means the resting
-limit order goes in BEFORE the touch happens, so whenever it does -- same
-day or later -- it just fills. This re-alerts as a stock falls closer
-(a genuinely better entry each time) while staying quiet for a stock that
-lingers flat or bounces within a range it has already gotten this close to.
+the breakout itself -- not on every day it merely still sits above
+breakout day low. The pipeline runs once, after close; if it only
+alerted on the exact touch, you couldn't react until the next trading
+day, and by then price often already moved on (checked empirically: 3 of
+10 real signals in one window never came back to the exact entry after
+the earliest day you could have placed the order). Alerting on approach
+means the resting limit order goes in BEFORE the touch happens, so
+whenever it does -- same day or later -- it just fills. This re-alerts
+as a stock falls closer (a genuinely better entry each time) while
+staying quiet for a stock that lingers flat or bounces within a range it
+has already gotten this close to.
+
+No requirement that the stock first rally above breakout_day_high before
+it's eligible ("confirmed departure") -- a stock is watched from the day
+after its breakout onward. An earlier version required that rally-first
+round trip and it cost a real entry: MANAPPURAM dipped within 1% of its
+breakout_day_open just 3 days after breaking out, but wasn't eligible to
+alert on it under that rule, and by the time it finally satisfied
+"confirmed departure" the stock had already run ~8% further. The
+is_new_low freshness check (see _score_features) is what actually
+prevents repetition, not a rally-first precondition.
 """
 
 import duckdb
@@ -105,19 +116,27 @@ def get_active_breakouts(con):
     Active breakouts (last 12 months) with a known breakout day -- the factual
     basis for scanning.
 
-    Two guards against premature/unconfirmed breakouts:
+    One guard: the breakout's month must have fully closed. breakout_month
+    for the current, still-in-progress calendar month is a monthly candle
+    built from however many trading days have happened so far -- its close
+    can still move a lot before the month actually ends, so a "breakout"
+    against it isn't confirmed yet. Only monthly candles from a month that
+    has actually finished are trustworthy.
 
-    1. The breakout's month must have fully closed. breakout_month for the
-       current, still-in-progress calendar month is a monthly candle built
-       from however many trading days have happened so far -- its close can
-       still move a lot before the month actually ends, so a "breakout"
-       against it isn't confirmed yet. Only monthly candles from a month
-       that has actually finished are trustworthy.
-    2. Confirmed departure: at least one close after breakout_date must have
-       exceeded breakout_day_high. Without this, a breakout that's only 1-3
-       days old trivially sits "near the low" simply because it hasn't moved
-       yet -- that's not a retest, it's a stock that never left the starting
-       line. A real retest needs the round trip: breakout, rally away, pull back.
+    Deliberately does NOT require the stock to have rallied above
+    breakout_day_high before it's eligible to watch -- the model is simply
+    "breakout happened, watch for price to return to breakout_day_open,"
+    not "breakout happened, then wait for a fresh high, then watch." An
+    earlier version required that "confirmed departure" and it cost a real,
+    concrete entry: MANAPPURAM dipped to within 1% of its breakout_day_open
+    on 2026-07-09, 3 days after breaking out, but wasn't eligible to alert
+    on it because it hadn't yet closed above its breakout_day_high -- that
+    only happened on 07-21, by which point the stock had already run to 352
+    (the 07-09 entry was ~330). Nothing here prevents a fresh, 1-day-old
+    breakout from qualifying immediately if it dips back that quickly --
+    that's intended, not a gap: _score_features' is_new_low check still
+    requires each alert to be a genuinely deeper approach than any before
+    it, so a stock sitting flat near its own breakout day doesn't repeat.
     """
     today = date.today()
     cutoff = today - timedelta(days=365)
@@ -134,12 +153,6 @@ def get_active_breakouts(con):
         AND b.breakout_date IS NOT NULL
         AND b.breakout_date <= ?
         AND b.breakout_day_low IS NOT NULL
-        AND EXISTS (
-            SELECT 1 FROM daily_ohlc d
-            WHERE d.symbol = b.symbol
-            AND d.date > b.breakout_date
-            AND d.close > b.breakout_day_high
-        )
     """, [cutoff, current_month_start, today]).fetchdf()
 
 def get_preliminary_breakouts(con):
@@ -150,6 +163,9 @@ def get_preliminary_breakouts(con):
     -- waiting for month-end confirmation costs the fastest, cheapest
     entries. The breakout trigger itself (close > the PRIOR, already-
     confirmed month's ATH) doesn't depend on the current month finishing.
+
+    Same as get_active_breakouts(): no "confirmed departure" precondition
+    required -- see that function's docstring for why.
 
     These are lower-confidence than get_active_breakouts() results (the
     month could still end up being a down month overall), so report them in
@@ -169,12 +185,6 @@ def get_preliminary_breakouts(con):
         AND b.breakout_date IS NOT NULL
         AND b.breakout_date <= ?
         AND b.breakout_day_low IS NOT NULL
-        AND EXISTS (
-            SELECT 1 FROM daily_ohlc d
-            WHERE d.symbol = b.symbol
-            AND d.date > b.breakout_date
-            AND d.close > b.breakout_day_high
-        )
     """, [current_month_start, today]).fetchdf()
 
 def get_daily_since_breakout(con, breakouts):
@@ -205,15 +215,23 @@ def _score_features(bo, daily_lookup, as_of_date):
     """
     Shared feature computation, keyed off the breakout-day-OPEN approach
     (see module docstring for validation of the underlying entry model):
-      - retest_depth_pct: % fall from the post-breakout rally peak close
-        to TODAY's low.
-      - retest_days: trading days from the rally peak to today.
+      - retest_depth_pct: % fall from the highest close reached since
+        breakout to TODAY's low.
+      - retest_days: trading days from that peak to today.
       - dist_ema20_pct / dist_ema50_pct: today's close vs its 20/50-day EMA.
     All four are computed relative to TODAY specifically -- not whenever
     the stock first got close. A stock can approach breakout_day_open
     once, drift, then fall to an even deeper low weeks later; that deeper
     day is a genuinely better (and different) entry, with its own
     depth/speed/trend numbers, not a repeat of the original approach's stats.
+
+    No requirement that the stock first rallied above breakout_day_high --
+    see get_active_breakouts' docstring for why that was removed. A stock
+    can qualify as soon as the day after breakout if it dips back that
+    quickly; the peak used for retest_depth/retest_days is simply the
+    highest close reached since breakout up to today, whatever that is
+    (even if today IS that peak, giving depth=0/days=0 for a stock still
+    climbing that hasn't pulled back at all).
 
     Trigger is APPROACH_PCT above breakout_day_open, not an exact touch.
     The alert only reaches you after close (the pipeline runs once, end
@@ -228,46 +246,36 @@ def _score_features(bo, daily_lookup, as_of_date):
 
     Returns (retest_depth_pct, retest_days, dist_ema20_pct, dist_ema50_pct)
     only when TODAY itself is a fresh approach (a new closest point to
-    breakout_day_open since departure) -- otherwise (None, None, None,
+    breakout_day_open since the breakout) -- otherwise (None, None, None,
     None): either the stock hasn't gotten close yet, or today isn't a new
     closest approach and there's nothing fresh to report.
     """
     sym = bo["symbol"]
     daily = daily_lookup.get(sym)
     if daily is None:
-        return None, None, None, None
+        return None, None, None, None, None
 
     bo_date = pd.to_datetime(bo["breakout_date"])
     bo_open = float(bo["breakout_day_open"])
     bo_low = float(bo["breakout_day_low"])
-    bo_high = float(bo["breakout_day_high"])
     approach_limit = bo_open * (1 + APPROACH_PCT / 100)
     after = daily[daily["date"] > bo_date]
     after = after[after["date"] <= pd.Timestamp(as_of_date)]
     if after.empty:
-        return None, None, None, None
+        return None, None, None, None, None
 
-    departure_mask = after["close"] > bo_high
-    if not departure_mask.any():
-        return None, None, None, None  # shouldn't happen given the confirmed-departure SQL guard, but be safe
-
-    departure_idx = departure_mask.idxmax()
     today_idx = after.index[-1]
-    if today_idx == departure_idx:
-        return None, None, None, None  # today IS the departure day -- not a post-rally pullback, just noise
-
     today_row = after.loc[today_idx]
     if not (today_row["low"] <= approach_limit and today_row["close"] > bo_low):
-        return None, None, None, None  # today isn't near breakout_day_open at all
+        return None, None, None, None, None  # today isn't near breakout_day_open at all
 
-    # Fresh only if today is a NEW closest approach since departure
-    # (excluding the departure day itself, and excluding today).
-    post_departure = after.loc[departure_idx:]
-    after_departure_day = post_departure[(post_departure.index > departure_idx) & (post_departure.index != today_idx)]
-    if not after_departure_day.empty and today_row["low"] >= after_departure_day["low"].min():
-        return None, None, None, None  # already gotten this close or closer before -- nothing new
+    # Fresh only if today is a NEW closest approach since breakout
+    # (excluding today itself from the comparison).
+    prior = after[after.index != today_idx]
+    if not prior.empty and today_row["low"] >= prior["low"].min():
+        return None, None, None, None, None  # already gotten this close or closer before -- nothing new
 
-    rally_seg = post_departure.loc[:today_idx]
+    rally_seg = after.loc[:today_idx]
     peak_idx = rally_seg["close"].idxmax()
     rally_peak_close = rally_seg.loc[peak_idx, "close"]
 
@@ -276,7 +284,14 @@ def _score_features(bo, daily_lookup, as_of_date):
     dist_ema20_pct = (today_row["close"] - today_row["ema20"]) / today_row["ema20"] * 100
     dist_ema50_pct = (today_row["close"] - today_row["ema50"]) / today_row["ema50"] * 100
 
-    return round(retest_depth_pct, 2), retest_days, round(dist_ema20_pct, 2), round(dist_ema50_pct, 2)
+    # today_row["low"] is returned too -- it's what actually triggered this
+    # alert (the approach check is low-based), while "current price" shown
+    # to the user is the close, which can end up meaningfully higher on a
+    # day with a strong intraday recovery. Without showing the low, a
+    # stock that dipped near entry then rallied hard looks like a display
+    # bug ("why does this show as approaching when the price is way above
+    # entry?") instead of the genuinely bullish signal it actually is.
+    return round(retest_depth_pct, 2), retest_days, round(dist_ema20_pct, 2), round(dist_ema50_pct, 2), round(float(today_row["low"]), 2)
 
 def score_confirmed(breakout_strength, retest_depth_pct, retest_days, dist_ema20_pct, dist_ema50_pct):
     """0-7. See module docstring for the significance testing behind each cutoff."""
@@ -356,7 +371,7 @@ def compute_candidates(breakouts, price_map, as_of_date, daily_lookup=None, tier
 
         score = None
         if daily_lookup is not None:
-            retest_depth_pct, retest_days, dist_ema20_pct, dist_ema50_pct = \
+            retest_depth_pct, retest_days, dist_ema20_pct, dist_ema50_pct, today_low = \
                 _score_features(bo, daily_lookup, as_of_date)
             if retest_depth_pct is None:
                 # Either hasn't touched breakout_day_open yet, or today isn't
@@ -368,13 +383,14 @@ def compute_candidates(breakouts, price_map, as_of_date, daily_lookup=None, tier
             else:
                 score = score_preliminary(retest_depth_pct, retest_days, dist_ema20_pct, dist_ema50_pct)
         else:
-            retest_depth_pct = retest_days = dist_ema20_pct = dist_ema50_pct = None
+            retest_depth_pct = retest_days = dist_ema20_pct = dist_ema50_pct = today_low = None
 
         candidates.append({
             "symbol": sym,
             "breakout_month": pd.to_datetime(bo["breakout_month"]).date(),
             "breakout_date": bo_date,
             "current_price": round(current_price, 2),
+            "today_low": today_low,
             "pct_from_low": round(pct_from_low, 2),
             "days_since_breakout": trading_days_since_breakout,
             "breakout_open": float(bo["breakout_day_open"]),
@@ -405,7 +421,8 @@ def _format_candidate_lines(candidates, max_score):
         score_str = f"{c['score']}/{max_score}" if c["score"] is not None else "n/a"
         lines.extend([
             f"{i}. {c['symbol']}  --  Score : {score_str}  --  Consolidation : {c['consolidation_months']} months",
-            f"   Current Price : {c['current_price']:.2f}",
+            f"   Current Price : {c['current_price']:.2f}"
+            + (f"   (today's low: {c['today_low']:.2f} -- this is what triggered the alert)" if c["today_low"] is not None else ""),
             f"   Breakout Date : {c['breakout_date']}",
             f"   Breakout      : "
             f"O:{c['breakout_open']:.2f} H:{c['breakout_high']:.2f} "
