@@ -1,15 +1,27 @@
 """
 update_daily.py
 Runs once daily, after market close, via GitHub Actions.
-Downloads OHLCV for all active breakout stocks (last 12 months)
-and appends to daily_ohlc. Also updates index_daily_ohlc.
+Downloads OHLCV for the FULL stock universe (data/stocks.csv, same
+source update_monthly.py already uses) and appends to daily_ohlc. Also
+updates index_daily_ohlc.
 
-For any active symbol whose daily_ohlc coverage for its earliest active
-breakout month is incomplete (e.g. a brand-new breakout that has never
-been fetched before), backfills that symbol's full history from the
-start of that month instead of only pulling the last few days. Without
-this, enrich_breakouts.py cannot find the true breakout day for new
-breakouts because the early days of the month were never downloaded.
+BUG FIX (2026-07-26): this used to source its symbol list from
+breakout_monthly WHERE status='active', which meant any symbol whose
+breakout got invalidated (price closed below breakout_day_low) silently
+and PERMANENTLY dropped out of daily updates from that day forward --
+found via a systemic check that 621 of 762 tracked symbols (81.5%) were
+stale by more than 7 days, all of them with status='invalidated' on
+their latest breakout. Beyond just staleness, this could make a genuinely
+fresh, later breakout invisible forever: enrich_breakouts.py needs
+daily_ohlc coverage for the new breakout month to fill in breakout_date,
+and a frozen daily_ohlc history means that search finds nothing. Fixed
+by tracking the same full universe update_monthly.py already covers,
+with coverage/backfill now judged by whether each symbol's daily_ohlc is
+actually fresh, not by its breakout status.
+
+For any symbol whose daily_ohlc has no rows, or whose latest row is more
+than BACKFILL_STALENESS_DAYS old, backfills its full history from
+BACKFILL_LOOKBACK_DAYS ago instead of only pulling the last few days.
 
 GitHub Actions scheduled crons are not guaranteed to fire on time -- this
 job has been observed running hours late, including during the NEXT day's
@@ -24,6 +36,7 @@ by the next day's run. Guard against it by never accepting a row for a
 session that isn't confirmed closed yet (see safe_cutoff_date() below).
 """
 
+import sys
 import time
 import duckdb
 import pandas as pd
@@ -31,9 +44,12 @@ import yfinance as yf
 from datetime import datetime, date, timedelta, timezone, time as dtime
 
 DB_PATH = "data/market.db"
+STOCKS_CSV = "data/stocks.csv"
 INDEX_TICKER = "^CRSLDX"
 INDEX_SYMBOL = "NIFTY500"
-COVERAGE_TOLERANCE_DAYS = 2  # allow this many fewer rows than the index before flagging as incomplete
+BACKFILL_STALENESS_DAYS = 10   # a symbol whose last daily_ohlc row is older than this gets a full backfill, not just a 5-day catch-up
+BACKFILL_LOOKBACK_DAYS = 365   # how far back to backfill a stale/never-tracked symbol
+STALE_HEALTH_THRESHOLD_PCT = 15  # if more than this % of the universe is still stale after a run, fail the job so the failure-email fires
 IST = timezone(timedelta(hours=5, minutes=30))
 MARKET_CLOSE_IST = dtime(15, 30)
 
@@ -48,40 +64,36 @@ def safe_cutoff_date():
         return now_ist.date()
     return now_ist.date() - timedelta(days=1)
 
-def get_index_trading_days(con, year_month):
-    """Count of index trading days in a given YYYY-MM, used as ground truth for expected coverage."""
-    return con.execute("""
-        SELECT COUNT(*) FROM index_daily_ohlc
-        WHERE symbol = ? AND strftime(date, '%Y-%m') = ?
-    """, [INDEX_SYMBOL, year_month]).fetchone()[0]
+def get_full_universe():
+    """Same source update_monthly.py already uses -- keeps daily_ohlc and
+    monthly_ohlc tracking the identical symbol set, so a symbol never
+    silently falls out of one while staying in the other."""
+    stocks_df = pd.read_csv(STOCKS_CSV)
+    return (
+        stocks_df["symbol"]
+        .astype(str).str.replace(".NS", "", regex=False).str.strip()
+        .tolist()
+    )
 
-def split_symbols_by_coverage(con, symbols_df):
+def split_symbols_by_freshness(con, symbols, cutoff_date):
     """
-    For each active symbol, check whether daily_ohlc already has (near) full
-    coverage for the month of its earliest active breakout. Returns:
-      incremental: list of symbols with adequate coverage (just fetch recent days)
-      backfill: list of (symbol, start_date) needing a full historical fetch
+    incremental: symbol's daily_ohlc is already fresh (last row within
+      BACKFILL_STALENESS_DAYS) -- just fetch a short recent window.
+    backfill: symbol has no daily_ohlc rows at all, or its last row is
+      older than that -- fetch BACKFILL_LOOKBACK_DAYS of history to catch
+      it up fully, not just the last few days.
     """
-    incremental = []
-    backfill = []
+    last_dates = con.execute(
+        "SELECT symbol, MAX(date) AS last_date FROM daily_ohlc GROUP BY symbol"
+    ).fetchdf().set_index("symbol")["last_date"].to_dict()
 
-    for _, row in symbols_df.iterrows():
-        sym = row["symbol"]
-        min_month = pd.to_datetime(row["min_month"]).date()
-        year_month = min_month.strftime("%Y-%m")
-
-        daily_count = con.execute("""
-            SELECT COUNT(*) FROM daily_ohlc
-            WHERE symbol = ? AND strftime(date, '%Y-%m') = ?
-        """, [sym, year_month]).fetchone()[0]
-
-        expected = get_index_trading_days(con, year_month)
-
-        if expected > 0 and daily_count < expected - COVERAGE_TOLERANCE_DAYS:
-            backfill.append((sym, min_month.replace(day=1)))
-        else:
+    incremental, backfill = [], []
+    for sym in symbols:
+        last = last_dates.get(sym)
+        if last is not None and (cutoff_date - pd.Timestamp(last).date()).days <= BACKFILL_STALENESS_DAYS:
             incremental.append(sym)
-
+        else:
+            backfill.append(sym)
     return incremental, backfill
 
 def download_batch(batch_ns, **kwargs):
@@ -146,27 +158,17 @@ def main():
 
     con = duckdb.connect(DB_PATH)
 
-    # Get active breakout stocks from last 12 months, along with the earliest
-    # active breakout month for each (this is where coverage needs to start).
-    cutoff = date.today() - timedelta(days=365)
-    symbols_df = con.execute("""
-        SELECT symbol, MIN(breakout_month) AS min_month
-        FROM breakout_monthly
-        WHERE status = 'active'
-        AND breakout_month >= ?
-        GROUP BY symbol
-    """, [cutoff]).fetchdf()
+    symbols = get_full_universe()
+    print(f"Full universe to update: {len(symbols)}")
 
-    print(f"Active breakout stocks to update: {len(symbols_df)}")
-
-    if symbols_df.empty:
-        print("No active stocks. Exiting.")
+    if not symbols:
+        print("No symbols in universe. Exiting.")
         con.close()
         return
 
-    incremental_symbols, backfill_symbols = split_symbols_by_coverage(con, symbols_df)
-    print(f"  Incremental (already covered): {len(incremental_symbols)}")
-    print(f"  Needs backfill (new/incomplete month): {len(backfill_symbols)}")
+    incremental_symbols, backfill_symbols = split_symbols_by_freshness(con, symbols, cutoff_date)
+    print(f"  Incremental (already fresh): {len(incremental_symbols)}")
+    print(f"  Needs backfill (stale/never tracked): {len(backfill_symbols)}")
 
     BATCH_SIZE = 100
     inserted_total = 0
@@ -184,25 +186,20 @@ def main():
         inserted_total += insert_rows(con, rows)
         time.sleep(1)
 
-    # Backfill: group symbols by their required start date and fetch full history.
-    backfill_by_start = {}
-    for sym, start_date in backfill_symbols:
-        backfill_by_start.setdefault(start_date, []).append(sym)
+    # Backfill: stale or never-tracked symbols all get the same lookback window.
+    backfill_start = (date.today() - timedelta(days=BACKFILL_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+    for i in range(0, len(backfill_symbols), BATCH_SIZE):
+        batch = backfill_symbols[i:i + BATCH_SIZE]
+        batch_ns = [s + ".NS" for s in batch]
 
-    for start_date, group in backfill_by_start.items():
-        start_str = start_date.strftime("%Y-%m-%d")
-        for i in range(0, len(group), BATCH_SIZE):
-            batch = group[i:i + BATCH_SIZE]
-            batch_ns = [s + ".NS" for s in batch]
+        print(f"  Backfilling {len(batch)} stocks from {backfill_start}...")
+        raw = download_batch(batch_ns, start=backfill_start, interval="1d")
+        if raw is None:
+            continue
 
-            print(f"  Backfilling {len(batch)} stocks from {start_str}...")
-            raw = download_batch(batch_ns, start=start_str, interval="1d")
-            if raw is None:
-                continue
-
-            rows = rows_from_raw(raw, batch, batch_ns, cutoff_date)
-            inserted_total += insert_rows(con, rows)
-            time.sleep(2)
+        rows = rows_from_raw(raw, batch, batch_ns, cutoff_date)
+        inserted_total += insert_rows(con, rows)
+        time.sleep(2)
 
     print(f"Inserted {inserted_total} rows into daily_ohlc.")
 
@@ -249,8 +246,27 @@ def main():
     except Exception as e:
         print(f"  Index update failed: {e}")
 
+    # Health check: if a meaningful chunk of the universe is still stale
+    # after this run, something is systemically wrong (rate limiting, a
+    # bad symbol source, a reintroduced version of the active-only bug
+    # this script was just fixed for) -- fail loudly instead of letting
+    # staleness silently accumulate for weeks like it did before.
+    last_dates = con.execute(
+        "SELECT symbol, MAX(date) AS last_date FROM daily_ohlc GROUP BY symbol"
+    ).fetchdf().set_index("symbol")["last_date"].to_dict()
+    stale_count = sum(
+        1 for sym in symbols
+        if sym not in last_dates or (cutoff_date - pd.Timestamp(last_dates[sym]).date()).days > BACKFILL_STALENESS_DAYS
+    )
+    stale_pct = stale_count / len(symbols) * 100
+    print(f"Post-run staleness check: {stale_count}/{len(symbols)} symbols ({stale_pct:.1f}%) still stale by >{BACKFILL_STALENESS_DAYS}d.")
+
     con.close()
     print("=== Done ===")
+
+    if stale_pct > STALE_HEALTH_THRESHOLD_PCT:
+        print(f"FAILING: {stale_pct:.1f}% of the universe is stale, above the {STALE_HEALTH_THRESHOLD_PCT}% threshold.")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -2,14 +2,17 @@ name: Daily Pipeline
 
 # One run a day, after market close: refreshes this month's monthly candle,
 # detects any breakouts (confirmed from past closed months, or preliminary
-# from the current month), refreshes daily prices, enriches breakout days,
-# and scans for retests. GitHub's free-tier scheduled crons don't fire at
-# the exact time requested -- in practice this "4 PM IST" trigger has been
-# landing closer to 7 PM IST, which is fine: the goal is one alert with the
-# full day's settled data, not a specific minute. update_daily.py's
-# safe_cutoff_date() guard means a late-firing run is safe either way -- it
-# will never write a live/partial bar as the day's close, no matter when
-# the job actually starts.
+# from the current month), refreshes daily prices for the FULL stock
+# universe, enriches breakout days, and emails today's fresh breakouts
+# (scan_fresh_breakouts.py) -- one per stock per month, no chasing
+# continuation legs. Entry = prior ATH (the level being broken), stop = BO
+# day low on a close basis, no target. GitHub's free-tier scheduled crons
+# don't fire at the exact time requested -- in practice this "4 PM IST"
+# trigger has been landing closer to 7 PM IST, which is fine: the goal is
+# one alert with the full day's settled data, not a specific minute.
+# update_daily.py's safe_cutoff_date() guard means a late-firing run is
+# safe either way -- it will never write a live/partial bar as the day's
+# close, no matter when the job actually starts.
 
 concurrency:
   group: market-db
@@ -43,12 +46,12 @@ jobs:
 
       - run: python scripts/enrich_breakouts.py
 
-      - name: Scan retest and send email
+      - name: Scan fresh breakouts and send email
         env:
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-        run: python scripts/scan_retest.py
+        run: python scripts/scan_fresh_breakouts.py
 
       - name: Commit DB
         run: |
@@ -60,3 +63,11 @@ jobs:
 
           git pull --rebase origin main
           git push
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+        run: python scripts/send_failure_email.py "${{ github.workflow }}" "${{ github.run_id }}"
