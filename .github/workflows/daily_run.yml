@@ -1,9 +1,9 @@
 name: Daily Pipeline
 
 # One run a day, after market close: refreshes this month's monthly candle,
-# detects any breakouts (confirmed from past closed months, or preliminary
-# from the current month), refreshes daily prices for the FULL stock
-# universe, enriches breakout days, and emails today's fresh breakouts
+# refreshes daily prices for the FULL stock universe, detects any breakouts
+# (confirmed from past closed months, or preliminary from the current
+# month), enriches breakout days, and emails today's fresh breakouts
 # (scan_fresh_breakouts.py) -- one per stock per month, no chasing
 # continuation legs. Entry = prior ATH (the level being broken), stop = BO
 # day low on a close basis, no target. GitHub's free-tier scheduled crons
@@ -13,6 +13,26 @@ name: Daily Pipeline
 # update_daily.py's safe_cutoff_date() guard means a late-firing run is
 # safe either way -- it will never write a live/partial bar as the day's
 # close, no matter when the job actually starts.
+#
+# STEP ORDER (2026-08-26 fix): update_daily.py now runs BEFORE
+# mark_breakouts.py, not after. mark_breakouts.py's true_up_monthly_from_
+# daily() corrects the current month's monthly OHLC using daily_ohlc
+# whenever that month has >= 15 trading days of daily coverage (yfinance's
+# own current-month monthly candle has been observed to lag/disagree with
+# the real daily closes once a month gets this far along) -- but with the
+# OLD order, mark_breakouts.py ran before update_daily.py fetched TODAY's
+# row, so that correction only ever saw daily data through YESTERDAY.
+# Once August crossed the 15-trading-day mark (2026-08-24), every fresh
+# breakout detection started landing exactly one trading day late:
+# ARIES/BLUSPRING/IIFL genuinely broke out 2026-08-24 but weren't detected
+# until the 2026-08-25 run; ENTERO/GOKULAGRO broke out 2026-08-25 but
+# weren't detected until 2026-08-26. Three alert emails in a row reported
+# zero stocks despite real, valid breakouts sitting in the table the whole
+# time, because scan_fresh_breakouts.py only reports a breakout on the
+# exact day it matches "today" -- and it never got the chance to, one day
+# late every time. Running update_daily.py first means true_up always has
+# TODAY's close available, closing the lag at its source instead of
+# working around it downstream.
 
 concurrency:
   group: market-db
@@ -40,9 +60,9 @@ jobs:
 
       - run: python scripts/update_monthly.py
 
-      - run: python scripts/mark_breakouts.py
-
       - run: python scripts/update_daily.py
+
+      - run: python scripts/mark_breakouts.py
 
       - run: python scripts/enrich_breakouts.py
 
