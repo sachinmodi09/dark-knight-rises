@@ -65,9 +65,10 @@ def is_nifty500_above_50dma(con):
     return latest_close > ma_50
 
 def get_drift_log_today(con, as_of):
-    """Monthly OHLC corrections (Yahoo -> daily-consolidated) made by
-    mark_breakouts.py's true_up_monthly_from_daily() during today's run --
-    see monthly_drift_log in mark_breakouts.py for the schema/rationale."""
+    """Monthly OHLC corrections (Yahoo -> daily-consolidated), scoped only to
+    the current month, made by mark_breakouts.py's
+    sync_current_month_from_daily() during today's run -- see
+    monthly_drift_log in mark_breakouts.py for the schema/rationale."""
     return con.execute("""
         SELECT symbol, month_date, yahoo_open, yahoo_high, yahoo_low, yahoo_close,
                daily_open, daily_high, daily_low, daily_close, drifted_fields, max_drift_pct
