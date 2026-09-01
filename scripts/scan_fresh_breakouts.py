@@ -78,12 +78,55 @@ def get_drift_log_today(con, as_of):
     """, [as_of]).fetchdf()
 
 def get_breakouts_on(con, as_of):
-    return con.execute("""
+    df = con.execute("""
         SELECT symbol, breakout_month, breakout_date, breakout_day_open, breakout_day_high,
                breakout_day_low, breakout_day_close, consolidation_months
         FROM breakout_monthly
         WHERE breakout_date = ?
     """, [as_of]).fetchdf()
+    df["is_repeat"] = False
+    return df
+
+def get_repeat_breakouts_on(con, as_of):
+    """A monthly breakout only ever gets ONE breakout_date (the first day
+    the close cleared the prior ATH) -- so a stock that broke out weakly on
+    day 1 and then pushed to a much stronger new high on day 20 of the same
+    month was never re-reported; the second, often cleaner, move was
+    silently dropped. Catch that: for any still-active breakout already
+    alerted earlier this month, treat today as alert-worthy again if
+    today's close sets a fresh high above the running max close since the
+    original breakout_date -- i.e. the stock is pushing to new highs again,
+    not just sitting above the old level. compute_quality() then runs the
+    same true-prior-high/clearance/volume checks on it as any other
+    breakout, so it lands in CLEAR or OTHER on its own merits."""
+    df = con.execute("""
+        WITH active_this_month AS (
+            SELECT symbol, breakout_month, breakout_date, consolidation_months
+            FROM breakout_monthly
+            WHERE status = 'active' AND breakout_date IS NOT NULL
+              AND breakout_date < ?
+              AND strftime(breakout_month, '%Y-%m') = strftime(?, '%Y-%m')
+        ),
+        running_max AS (
+            SELECT a.symbol, a.breakout_month, a.breakout_date, a.consolidation_months,
+                   MAX(d.close) AS max_close_so_far
+            FROM active_this_month a
+            JOIN daily_ohlc d ON d.symbol = a.symbol AND d.date >= a.breakout_date AND d.date < ?
+            GROUP BY a.symbol, a.breakout_month, a.breakout_date, a.consolidation_months
+        ),
+        today AS (
+            SELECT symbol, open, high, low, close FROM daily_ohlc WHERE date = ?
+        )
+        SELECT r.symbol, r.breakout_month, ? AS breakout_date,
+               t.open AS breakout_day_open, t.high AS breakout_day_high,
+               t.low AS breakout_day_low, t.close AS breakout_day_close,
+               r.consolidation_months
+        FROM running_max r
+        JOIN today t ON t.symbol = r.symbol
+        WHERE t.close > r.max_close_so_far
+    """, [as_of, as_of, as_of, as_of, as_of]).fetchdf()
+    df["is_repeat"] = True
+    return df
 
 def compute_quality(con, breakouts, as_of):
     """Adds true_prior_high (max daily HIGH over all history strictly
@@ -143,6 +186,7 @@ def compute_quality(con, breakouts, as_of):
 
         rows.append({
             **bo.to_dict(),
+            "breakout_day_volume": bo_volume,
             "true_prior_high": true_prior_high,
             "true_prior_high_date": true_prior_high_date,
             "duration_months": duration_months,
