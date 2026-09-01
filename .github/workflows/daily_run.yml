@@ -81,8 +81,13 @@ jobs:
           git add data/market.db
           git diff --cached --quiet || git commit -m "Daily scan $(date +'%Y-%m-%d %H:%M')"
 
-          git pull --rebase origin main
-          git push
+          # Rebase onto the branch this run is actually on, not a hardcoded
+          # main. With the shallow checkout above (fetch-depth: 1) git has no
+          # common ancestor for a *different* branch, so "origin main" made a
+          # manual workflow_dispatch on any non-main branch die with a bogus
+          # add/add conflict on files neither side had actually touched twice.
+          git pull --rebase origin "${{ github.ref_name }}"
+          git push origin HEAD:"${{ github.ref_name }}"
 
       - name: Notify on failure
         if: failure()
