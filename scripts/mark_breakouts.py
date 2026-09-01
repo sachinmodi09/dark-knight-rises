@@ -128,53 +128,151 @@ def compute_breakouts_for_symbol(symbol, monthly_df):
 
     return results
 
-def true_up_monthly_from_daily(con, min_daily_rows=15, mismatch_tol=0.005):
+def backfill_missing_current_month_from_daily(con):
     """
-    yfinance's monthly-interval endpoint has occasionally returned a close that
-    disagrees with the stock's own actual daily closes for that month (not the
-    duplicate-row bug -- a separate data-quality issue). Wherever daily_ohlc has
-    near-complete coverage for a given symbol/month, that's the more trustworthy
-    source, so true up monthly_ohlc's OHLCV from it before computing breakouts.
+    yfinance's monthly-interval endpoint returns a placeholder row for a
+    brand-new calendar month (labeled by its 1st) with real volume but NaN
+    OHLC, since the month hasn't traded enough to aggregate yet.
+    update_monthly.py's dropna(subset=["Close"]) discards that placeholder,
+    so on day 1 of a new month monthly_ohlc can end up with NO row at all
+    for it -- not even a partial one. true_up_monthly_from_daily() can't
+    help because it only corrects months that already have a row.
+    Synthesize a first-cut monthly bar from daily_ohlc (which update_daily.py
+    always keeps current) for any symbol/month that's missing one entirely,
+    so breakout detection isn't stuck on last month's close. A single day of
+    daily data is enough -- true_up_monthly_from_daily then keeps refining it
+    as more days accumulate this month.
     """
-    months = con.execute(
-        "SELECT DISTINCT strftime(date, '%Y-%m') AS ym FROM monthly_ohlc ORDER BY ym"
-    ).fetchdf()["ym"].tolist()
+    latest_day = con.execute("SELECT MAX(date) FROM daily_ohlc").fetchone()[0]
+    if latest_day is None:
+        return
+    ym = latest_day.strftime("%Y-%m")
+    month_date = latest_day.replace(day=1)
+
+    missing_symbols = con.execute("""
+        SELECT DISTINCT d.symbol
+        FROM daily_ohlc d
+        WHERE strftime(d.date, '%Y-%m') = ?
+          AND NOT EXISTS (
+              SELECT 1 FROM monthly_ohlc m
+              WHERE m.symbol = d.symbol AND strftime(m.date, '%Y-%m') = ?
+          )
+    """, [ym, ym]).fetchdf()["symbol"].tolist()
+
+    inserted = 0
+    for sym in missing_symbols:
+        agg = con.execute("""
+            SELECT
+                ARG_MIN(open, date), MAX(high), MIN(low), ARG_MAX(close, date), SUM(volume)
+            FROM daily_ohlc WHERE symbol = ? AND strftime(date,'%Y-%m') = ?
+        """, [sym, ym]).fetchone()
+        o, h, l, c, v = agg
+        if c is None or c == 0:
+            continue
+
+        con.execute("""
+            INSERT INTO monthly_ohlc VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, [sym, month_date, round(o, 4), round(h, 4), round(l, 4), round(c, 4), int(v)])
+        inserted += 1
+
+    if inserted:
+        print(f"Backfilled {inserted} monthly_ohlc rows for {ym} from daily_ohlc "
+              f"(Yahoo has not published this month's monthly candle yet).")
+
+def init_drift_log_table(con):
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS monthly_drift_log (
+            symbol          VARCHAR,
+            month_date      DATE,
+            run_date        DATE,
+            yahoo_open      DOUBLE,
+            yahoo_high      DOUBLE,
+            yahoo_low       DOUBLE,
+            yahoo_close     DOUBLE,
+            daily_open      DOUBLE,
+            daily_high      DOUBLE,
+            daily_low       DOUBLE,
+            daily_close     DOUBLE,
+            drifted_fields  VARCHAR,
+            max_drift_pct   DOUBLE
+        )
+    """)
+
+def true_up_monthly_from_daily(con, mismatch_tol=0.005):
+    """
+    yfinance's monthly-interval endpoint has occasionally returned OHLC that
+    disagrees with the stock's own actual daily-consolidated OHLC for that
+    month (not the duplicate-row bug -- a separate data-quality issue).
+    daily_ohlc is the more trustworthy source (measured: while the pipeline's
+    own close-only correction keeps close agreement near-perfect, open/high/
+    low -- never touched by that correction -- disagree from daily by more
+    than 0.5% in roughly 1-7% of month-records, up to 23% off for open). So
+    true up monthly_ohlc's full OHLCV from daily_ohlc whenever ANY of
+    open/high/low/close drifts past tolerance, for any month with at least
+    one day of daily coverage -- a single day is enough to trust daily over
+    a stale or wrong Yahoo value. Every correction is logged to
+    monthly_drift_log with before/after evidence for the daily email.
+    """
+    run_date = con.execute("SELECT MAX(date) FROM daily_ohlc").fetchone()[0]
+
+    # Single bulk join instead of a per-symbol/month query: daily_ohlc only
+    # covers ~28 months (mid-2024 onward) out of monthly_ohlc's 320+ months
+    # of Yahoo history, so an inner join naturally limits this to the
+    # (symbol, month) pairs that have at least one day of daily coverage --
+    # no separate row-count gate needed, and it runs in one pass instead of
+    # one query per monthly_ohlc row (which timed out against the full
+    # 274k+ row table).
+    df = con.execute("""
+        WITH daily_agg AS (
+            SELECT
+                symbol, strftime(date, '%Y-%m') AS ym,
+                ARG_MIN(open, date) AS d_open, MAX(high) AS d_high,
+                MIN(low) AS d_low, ARG_MAX(close, date) AS d_close,
+                SUM(volume) AS d_volume
+            FROM daily_ohlc
+            GROUP BY symbol, ym
+        )
+        SELECT
+            m.symbol, m.date AS month_date,
+            m.open AS y_open, m.high AS y_high, m.low AS y_low, m.close AS y_close,
+            d.d_open, d.d_high, d.d_low, d.d_close, d.d_volume
+        FROM monthly_ohlc m
+        JOIN daily_agg d ON d.symbol = m.symbol AND d.ym = strftime(m.date, '%Y-%m')
+        WHERE d.d_close IS NOT NULL AND d.d_close != 0
+    """).fetchdf()
 
     fixed_total = 0
-    for ym in months:
-        rows = con.execute("""
-            SELECT symbol, date, close FROM monthly_ohlc
-            WHERE strftime(date, '%Y-%m') = ?
-        """, [ym]).fetchdf()
+    for _, row in df.iterrows():
+        drifts = {}
+        for field, yahoo_val, daily_val in [
+            ("open", row["y_open"], row["d_open"]), ("high", row["y_high"], row["d_high"]),
+            ("low", row["y_low"], row["d_low"]), ("close", row["y_close"], row["d_close"]),
+        ]:
+            if daily_val:
+                pct = abs(yahoo_val - daily_val) / daily_val * 100
+                if pct / 100 > mismatch_tol:
+                    drifts[field] = pct
 
-        for _, row in rows.iterrows():
-            sym = row["symbol"]
-            daily_count = con.execute("""
-                SELECT COUNT(*) FROM daily_ohlc WHERE symbol = ? AND strftime(date, '%Y-%m') = ?
-            """, [sym, ym]).fetchone()[0]
-            if daily_count < min_daily_rows:
-                continue
+        if drifts:
+            con.execute("""
+                UPDATE monthly_ohlc SET open=?, high=?, low=?, close=?, volume=?
+                WHERE symbol = ? AND date = ?
+            """, [round(row["d_open"], 4), round(row["d_high"], 4), round(row["d_low"], 4),
+                  round(row["d_close"], 4), int(row["d_volume"]), row["symbol"], row["month_date"]])
+            fixed_total += 1
 
-            agg = con.execute("""
-                SELECT
-                    (SELECT open FROM daily_ohlc WHERE symbol = ? AND strftime(date,'%Y-%m') = ? ORDER BY date ASC LIMIT 1),
-                    MAX(high), MIN(low),
-                    (SELECT close FROM daily_ohlc WHERE symbol = ? AND strftime(date,'%Y-%m') = ? ORDER BY date DESC LIMIT 1),
-                    SUM(volume)
-                FROM daily_ohlc WHERE symbol = ? AND strftime(date,'%Y-%m') = ?
-            """, [sym, ym, sym, ym, sym, ym]).fetchone()
-            o, h, l, c, v = agg
-            if c is None or c == 0:
-                continue
+            drifted_fields = ", ".join(f"{f}:{p:.2f}%" for f, p in drifts.items())
+            con.execute("""
+                INSERT INTO monthly_drift_log VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, [
+                row["symbol"], row["month_date"], run_date,
+                round(row["y_open"], 4), round(row["y_high"], 4), round(row["y_low"], 4), round(row["y_close"], 4),
+                round(row["d_open"], 4), round(row["d_high"], 4), round(row["d_low"], 4), round(row["d_close"], 4),
+                drifted_fields, round(max(drifts.values()), 4),
+            ])
 
-            if abs(c - row["close"]) / c > mismatch_tol:
-                con.execute("""
-                    UPDATE monthly_ohlc SET open=?, high=?, low=?, close=?, volume=?
-                    WHERE symbol = ? AND date = ?
-                """, [round(o, 4), round(h, 4), round(l, 4), round(c, 4), int(v), sym, row["date"]])
-                fixed_total += 1
-
-    print(f"True-up from daily_ohlc: corrected {fixed_total} monthly_ohlc rows.")
+    print(f"True-up from daily_ohlc: corrected {fixed_total} monthly_ohlc rows "
+          f"(checking open/high/low/close, tolerance {mismatch_tol*100:.1f}%).")
 
 def remove_orphaned_breakouts(con):
     """
@@ -203,7 +301,9 @@ def main():
 
     con = duckdb.connect(DB_PATH)
     init_breakout_table(con)
+    init_drift_log_table(con)
 
+    backfill_missing_current_month_from_daily(con)
     true_up_monthly_from_daily(con)
     remove_orphaned_breakouts(con)
 

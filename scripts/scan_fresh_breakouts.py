@@ -64,6 +64,18 @@ def is_nifty500_above_50dma(con):
     ma_50 = float(df["close"].mean())
     return latest_close > ma_50
 
+def get_drift_log_today(con, as_of):
+    """Monthly OHLC corrections (Yahoo -> daily-consolidated) made by
+    mark_breakouts.py's true_up_monthly_from_daily() during today's run --
+    see monthly_drift_log in mark_breakouts.py for the schema/rationale."""
+    return con.execute("""
+        SELECT symbol, month_date, yahoo_open, yahoo_high, yahoo_low, yahoo_close,
+               daily_open, daily_high, daily_low, daily_close, drifted_fields, max_drift_pct
+        FROM monthly_drift_log
+        WHERE run_date = ?
+        ORDER BY max_drift_pct DESC
+    """, [as_of]).fetchdf()
+
 def get_breakouts_on(con, as_of):
     return con.execute("""
         SELECT symbol, breakout_month, breakout_date, breakout_day_open, breakout_day_high,
@@ -141,7 +153,31 @@ def compute_quality(con, breakouts, as_of):
         })
     return pd.DataFrame(rows)
 
-def format_email_body(df, as_of_label, nifty_above):
+DRIFT_NOTES_MAX = 25
+
+def format_drift_notes(drift_df):
+    if drift_df.empty:
+        return []
+    total = len(drift_df)
+    shown = drift_df.head(DRIFT_NOTES_MAX)
+    title = f"--- ADDITIONAL NOTES: Monthly data corrected from daily ({total}) ---"
+    if total > DRIFT_NOTES_MAX:
+        title += f"  (showing top {DRIFT_NOTES_MAX} by drift %; full log in monthly_drift_log table)"
+    lines = [title, ""]
+    for i, (_, r) in enumerate(shown.iterrows(), 1):
+        lines.extend([
+            f"{i}. {r['symbol']}  --  {str(r['month_date'])[:7]}",
+            f"   Yahoo monthly : O:{r['yahoo_open']:.2f} H:{r['yahoo_high']:.2f} "
+            f"L:{r['yahoo_low']:.2f} C:{r['yahoo_close']:.2f}",
+            f"   Daily-derived : O:{r['daily_open']:.2f} H:{r['daily_high']:.2f} "
+            f"L:{r['daily_low']:.2f} C:{r['daily_close']:.2f}",
+            f"   Drifted       : {r['drifted_fields']}  (threshold 0.5%)",
+            f"   -> Replaced with daily-derived OHLC.",
+            "",
+        ])
+    return lines
+
+def format_email_body(df, as_of_label, nifty_above, drift_df=None):
     # A negative clearance_pct means today's close still hasn't cleared a
     # more recent high than the one breakout_monthly's prev_ath checked
     # (prev_ath is monthly-high based -- see module docstring) -- e.g.
@@ -164,6 +200,9 @@ def format_email_body(df, as_of_label, nifty_above):
     ]
     if df.empty:
         lines.append("No breakouts today.")
+        if drift_df is not None:
+            lines.append("")
+            lines.extend(format_drift_notes(drift_df))
         return "\n".join(lines)
 
     clear = df[df["is_clear"]].sort_values("body_pct", ascending=False)
@@ -191,6 +230,8 @@ def format_email_body(df, as_of_label, nifty_above):
 
     lines.extend(block(clear, "CLEAR"))
     lines.extend(block(rest, "OTHER"))
+    if drift_df is not None and not drift_df.empty:
+        lines.extend(format_drift_notes(drift_df))
     return "\n".join(lines)
 
 def main(as_of=None):
@@ -201,9 +242,10 @@ def main(as_of=None):
     nifty_above = is_nifty500_above_50dma(con)
     breakouts = get_breakouts_on(con, as_of)
     df = compute_quality(con, breakouts, as_of)
+    drift_df = get_drift_log_today(con, as_of)
     con.close()
 
-    body = format_email_body(df, str(as_of), nifty_above)
+    body = format_email_body(df, str(as_of), nifty_above, drift_df)
 
     valid = df[(df["clearance_pct"].isna()) | (df["clearance_pct"] >= 0)] if not df.empty else df
     n_total = len(valid)
