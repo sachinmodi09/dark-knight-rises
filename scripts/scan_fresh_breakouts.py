@@ -198,6 +198,100 @@ def compute_quality(con, breakouts, as_of):
         })
     return pd.DataFrame(rows)
 
+def init_alert_log_table(con):
+    """Audit trail of every alert this script has ever emailed -- so 'how is
+    the system performing' can be answered by querying this table directly
+    instead of digging through past emails. Carries every field the email
+    itself shows, so a row here fully reconstructs what was sent.
+    alert_seq counts how many times a symbol has been alerted within the
+    same breakout_month (1 = first alert, 2 = a later fresh-high day in the
+    same month, etc.); is_repeat flags those later ones."""
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS alert_log (
+            symbol               VARCHAR,
+            alert_date           DATE,
+            breakout_month       DATE,
+            alert_seq            INTEGER,
+            is_repeat            BOOLEAN,
+            open                 DOUBLE,
+            high                 DOUBLE,
+            low                  DOUBLE,
+            close                DOUBLE,
+            volume               BIGINT,
+            true_prior_high      DOUBLE,
+            true_prior_high_date DATE,
+            duration_months      DOUBLE,
+            consolidation_months INTEGER,
+            body_pct             DOUBLE,
+            clearance_pct        DOUBLE,
+            vol_ratio            DOUBLE,
+            is_clear             BOOLEAN,
+            tier                 VARCHAR,
+            sent_at              TIMESTAMP,
+            PRIMARY KEY (symbol, alert_date)
+        )
+    """)
+
+def attach_alert_seq(con, df):
+    """alert_seq = how many alerts this symbol has already had within the
+    same breakout_month, +1. Counted from alert_log itself, so it keeps
+    incrementing correctly across days without extra bookkeeping."""
+    if df.empty:
+        df["alert_seq"] = pd.Series(dtype=int)
+        return df
+    seqs = []
+    for _, r in df.iterrows():
+        prior = con.execute("""
+            SELECT COUNT(*) FROM alert_log
+            WHERE symbol = ? AND breakout_month = ? AND alert_date < ?
+        """, [r["symbol"], r["breakout_month"], r["breakout_date"]]).fetchone()[0]
+        seqs.append(prior + 1)
+    df = df.copy()
+    df["alert_seq"] = seqs
+    return df
+
+def _num(v):
+    return None if v is None or pd.isna(v) else float(v)
+
+def log_alerts(con, df):
+    """Record exactly the rows that made it into the email (post-exclusion)
+    into alert_log -- keyed on (symbol, alert_date), so a re-run on the same
+    day refreshes rather than duplicates."""
+    if df.empty:
+        return
+    now = pd.Timestamp.now()
+    for _, r in df.iterrows():
+        tph_date = r["true_prior_high_date"]
+        con.execute("""
+            INSERT OR REPLACE INTO alert_log VALUES
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, [
+            r["symbol"], r["breakout_date"], r["breakout_month"],
+            int(r["alert_seq"]), bool(r.get("is_repeat", False)),
+            _num(r["breakout_day_open"]), _num(r["breakout_day_high"]),
+            _num(r["breakout_day_low"]), _num(r["breakout_day_close"]),
+            int(r["breakout_day_volume"]) if pd.notna(r["breakout_day_volume"]) else None,
+            _num(r["true_prior_high"]),
+            None if tph_date is None or pd.isna(tph_date) else pd.Timestamp(tph_date).date(),
+            _num(r["duration_months"]),
+            int(r["consolidation_months"]) if pd.notna(r["consolidation_months"]) else None,
+            _num(r["body_pct"]), _num(r["clearance_pct"]), _num(r["vol_ratio"]),
+            bool(r["is_clear"]), r["tier"], now,
+        ])
+
+def split_valid_and_excluded(df):
+    """A negative clearance_pct means today's close still hasn't cleared a
+    more recent high than the one breakout_monthly's prev_ath checked
+    (prev_ath is monthly-high based -- see module docstring) -- e.g.
+    CHENNPETRO's 2026-07-21 breakout closed at 1258.10, still below the
+    1279.70 high set 2026-07-16. That's not a confirmed breakout yet, so
+    it's dropped entirely rather than shown as "OTHER" or logged as sent."""
+    if df.empty:
+        return df, 0
+    excluded_count = int((df["clearance_pct"] < 0).sum())
+    valid = df[(df["clearance_pct"].isna()) | (df["clearance_pct"] >= 0)]
+    return valid, excluded_count
+
 DRIFT_NOTES_MAX = 25
 
 def format_drift_notes(drift_df):
@@ -222,16 +316,12 @@ def format_drift_notes(drift_df):
         ])
     return lines
 
-def format_email_body(df, as_of_label, nifty_above, drift_df=None):
-    # A negative clearance_pct means today's close still hasn't cleared a
-    # more recent high than the one breakout_monthly's prev_ath checked
-    # (prev_ath is monthly-high based -- see module docstring) -- e.g.
-    # CHENNPETRO's 2026-07-21 breakout closed at 1258.10, still below the
-    # 1279.70 high set 2026-07-16. That's not a confirmed breakout yet, so
-    # it's dropped from the report entirely rather than shown as "OTHER".
-    excluded_count = int((df["clearance_pct"] < 0).sum()) if not df.empty else 0
-    if not df.empty:
-        df = df[(df["clearance_pct"].isna()) | (df["clearance_pct"] >= 0)]
+def format_email_body(df, as_of_label, nifty_above, drift_df=None, excluded_count=0):
+    """`df` is expected to already be the valid (post-exclusion) set from
+    split_valid_and_excluded(), with `excluded_count` passed alongside it --
+    so exactly what gets emailed is also exactly what gets logged to
+    alert_log."""
+    repeat_count = int(df["alert_seq"].gt(1).sum()) if not df.empty and "alert_seq" in df else 0
 
     lines = [
         f"Fresh Breakouts - {as_of_label}",
@@ -240,6 +330,7 @@ def format_email_body(df, as_of_label, nifty_above, drift_df=None):
         f"Stop : BO day low (close basis). No target -- hold until stop.",
         f"CLEAR = body >= {CLEAR_BODY_PCT}% AND clearance >= {CLEAR_CLEARANCE_PCT}% AND volume >= {CLEAR_VOL_RATIO}x 50d avg.",
         f"Total breakouts today : {len(df)}"
+        + (f" ({repeat_count} repeat)" if repeat_count else "")
         + (f"  ({excluded_count} excluded -- hasn't cleared a more recent high yet)" if excluded_count else ""),
         "",
     ]
@@ -261,8 +352,10 @@ def format_email_body(df, as_of_label, nifty_above, drift_df=None):
             tphd = str(r["true_prior_high_date"])[:10] if r["true_prior_high_date"] is not None else "n/a"
             dur = f"{r['duration_months']:.1f} months" if r["duration_months"] is not None else "n/a"
             vr = f"{r['vol_ratio']:.2f}x" if r["vol_ratio"] is not None else "n/a"
+            seq = int(r["alert_seq"]) if "alert_seq" in r and pd.notna(r["alert_seq"]) else 1
+            seq_tag = f"  --  ALERT #{seq} THIS MONTH" if seq > 1 else ""
             out.extend([
-                f"{i}. {r['symbol']}  --  {r['tier'].upper()}  --  {'CLEAR' if r['is_clear'] else 'not clear'}",
+                f"{i}. {r['symbol']}  --  {r['tier'].upper()}  --  {'CLEAR' if r['is_clear'] else 'not clear'}{seq_tag}",
                 f"   Breakout Date : {r['breakout_date']}",
                 f"   Breakout Day  : O:{r['breakout_day_open']:.2f} H:{r['breakout_day_high']:.2f} "
                 f"L:{r['breakout_day_low']:.2f} C:{r['breakout_day_close']:.2f}",
@@ -280,25 +373,35 @@ def format_email_body(df, as_of_label, nifty_above, drift_df=None):
     return "\n".join(lines)
 
 def main(as_of=None):
-    con = duckdb.connect(DB_PATH, read_only=True)
+    # Writable now (was read_only): this script owns alert_log.
+    con = duckdb.connect(DB_PATH)
+    init_alert_log_table(con)
     if as_of is None:
         as_of = con.execute("SELECT MAX(date) FROM daily_ohlc").fetchone()[0]
 
     nifty_above = is_nifty500_above_50dma(con)
-    breakouts = get_breakouts_on(con, as_of)
+    # First-time breakouts (breakout_date == today) plus any stock already
+    # alerted earlier this month that is pushing to a fresh new high today.
+    breakouts = pd.concat(
+        [get_breakouts_on(con, as_of), get_repeat_breakouts_on(con, as_of)],
+        ignore_index=True,
+    )
     df = compute_quality(con, breakouts, as_of)
+    valid, excluded_count = split_valid_and_excluded(df)
+    valid = attach_alert_seq(con, valid)
     drift_df = get_drift_log_today(con, as_of)
+
+    body = format_email_body(valid, str(as_of), nifty_above, drift_df, excluded_count)
+
+    log_alerts(con, valid)
     con.close()
 
-    body = format_email_body(df, str(as_of), nifty_above, drift_df)
-
-    valid = df[(df["clearance_pct"].isna()) | (df["clearance_pct"] >= 0)] if not df.empty else df
     n_total = len(valid)
     n_clear = int(valid["is_clear"].sum()) if n_total else 0
     subject = f"[Fresh Breakouts] {n_total} today, {n_clear} CLEAR -- {as_of}"
     send_email(subject, body)
 
-    return df, body
+    return valid, body
 
 if __name__ == "__main__":
     print(f"=== scan_fresh_breakouts.py started ===")
