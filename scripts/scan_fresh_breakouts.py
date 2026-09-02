@@ -22,10 +22,12 @@ breakout didn't actually clear yet).
 """
 
 import os
+import html
 import duckdb
 import pandas as pd
 import smtplib
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 DB_PATH = "data/market.db"
 INDEX_SYMBOL = "NIFTY500"
@@ -36,13 +38,21 @@ EMAIL_SENDER = os.environ.get("EMAIL_SENDER")
 EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
 EMAIL_RECEIVER = os.environ.get("EMAIL_RECEIVER")
 
-def send_email(subject, body):
+def send_email(subject, body, html_body=None):
+    """Sends multipart/alternative when an HTML body is supplied, so clients
+    that can render it get the styled version and everything else falls back
+    to the plain text one."""
     if not EMAIL_SENDER or not EMAIL_PASSWORD or not EMAIL_RECEIVER:
         print("Email credentials missing.")
         print(body)
         return
     try:
-        msg = MIMEText(body, "plain")
+        if html_body:
+            msg = MIMEMultipart("alternative")
+            msg.attach(MIMEText(body, "plain"))
+            msg.attach(MIMEText(html_body, "html"))
+        else:
+            msg = MIMEText(body, "plain")
         msg["From"] = EMAIL_SENDER
         msg["To"] = EMAIL_RECEIVER
         msg["Subject"] = subject
@@ -311,29 +321,38 @@ def split_valid_and_excluded(df):
     excluded_count = int((~keep).sum())
     return df[keep], excluded_count
 
-DRIFT_NOTES_MAX = 25
+DRIFT_EXPLAINER = (
+    "Yahoo's monthly bar for an unfinished month returns only the LATEST day's "
+    "candle, not the month-to-date aggregate, so open/high/low are rebuilt from "
+    "daily_ohlc. Close is unaffected (the last day's close IS the month-to-date "
+    "close). Current month only -- historical months are never touched."
+)
+
+def drift_field_counts(drift_df):
+    """How many of the corrections touched each field. Verified against the
+    2026-09-02 run: open 1378, high 1053, low 308, close 0 -- exactly the
+    signature of Yahoo returning one day's candle instead of the aggregate."""
+    return {f: int(drift_df["drifted_fields"].str.contains(f + ":", regex=False).sum())
+            for f in ("open", "high", "low", "close")}
 
 def format_drift_notes(drift_df):
+    """One summary line rather than a per-stock dump: this is a single
+    systematic quirk in Yahoo's feed affecting most of the universe every
+    day, not N separate data problems worth reading individually. Row-level
+    before/after evidence lives in the monthly_drift_log table."""
     if drift_df.empty:
         return []
-    total = len(drift_df)
-    shown = drift_df.head(DRIFT_NOTES_MAX)
-    title = f"--- ADDITIONAL NOTES: Monthly data corrected from daily ({total}) ---"
-    if total > DRIFT_NOTES_MAX:
-        title += f"  (showing top {DRIFT_NOTES_MAX} by drift %; full log in monthly_drift_log table)"
-    lines = [title, ""]
-    for i, (_, r) in enumerate(shown.iterrows(), 1):
-        lines.extend([
-            f"{i}. {r['symbol']}  --  {str(r['month_date'])[:7]}",
-            f"   Yahoo monthly : O:{r['yahoo_open']:.2f} H:{r['yahoo_high']:.2f} "
-            f"L:{r['yahoo_low']:.2f} C:{r['yahoo_close']:.2f}",
-            f"   Daily-derived : O:{r['daily_open']:.2f} H:{r['daily_high']:.2f} "
-            f"L:{r['daily_low']:.2f} C:{r['daily_close']:.2f}",
-            f"   Drifted       : {r['drifted_fields']}  (threshold 0.5%)",
-            f"   -> Replaced with daily-derived OHLC.",
-            "",
-        ])
-    return lines
+    c = drift_field_counts(drift_df)
+    month = str(drift_df["month_date"].iloc[0])[:7]
+    return [
+        "--- ADDITIONAL NOTES ---",
+        "",
+        f"Monthly data corrected from daily for {month} : {len(drift_df)} stocks "
+        f"(open {c['open']}, high {c['high']}, low {c['low']}, close {c['close']}).",
+        DRIFT_EXPLAINER,
+        "Row-level before/after detail: monthly_drift_log table.",
+        "",
+    ]
 
 def format_email_body(df, as_of_label, nifty_above, drift_df=None, excluded_count=0):
     """`df` is expected to already be the valid (post-exclusion) set from
@@ -374,7 +393,7 @@ def format_email_body(df, as_of_label, nifty_above, drift_df=None, excluded_coun
             seq = int(r["alert_seq"]) if "alert_seq" in r and pd.notna(r["alert_seq"]) else 1
             seq_tag = f"  --  ALERT #{seq} THIS MONTH" if seq > 1 else ""
             out.extend([
-                f"{i}. {r['symbol']}  --  {r['tier'].upper()}  --  {'CLEAR' if r['is_clear'] else 'not clear'}{seq_tag}",
+                f"{i}. {r['symbol']}  --  {'CLEAR' if r['is_clear'] else 'not clear'}{seq_tag}",
                 f"   Breakout Date : {r['breakout_date']}",
                 f"   Breakout Day  : O:{r['breakout_day_open']:.2f} H:{r['breakout_day_high']:.2f} "
                 f"L:{r['breakout_day_low']:.2f} C:{r['breakout_day_close']:.2f}",
@@ -390,6 +409,203 @@ def format_email_body(df, as_of_label, nifty_above, drift_df=None, excluded_coun
     if drift_df is not None and not drift_df.empty:
         lines.extend(format_drift_notes(drift_df))
     return "\n".join(lines)
+
+# --- HTML email ------------------------------------------------------------
+# Everything is inline-styled and table-based on purpose: Gmail and most
+# mobile clients strip <style> blocks and ignore external CSS, so any styling
+# that isn't on the element itself simply disappears.
+
+FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif"
+MONO = "'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace"
+INK, MUTED, LINE = "#16181d", "#6b7280", "#dfe3e8"
+GREEN, GREEN_BG = "#0b7a43", "#e6f4ec"
+AMBER, AMBER_BG = "#92400e", "#fef3c7"
+BLUE, BLUE_BG = "#1d4ed8", "#dbeafe"
+RED, RED_BG = "#b42318", "#fee4e2"
+SLATE, SLATE_BG = "#475467", "#f2f4f7"
+
+def _f(v, dp=2, dash="n/a"):
+    return dash if v is None or pd.isna(v) else f"{float(v):,.{dp}f}"
+
+def _badge(text, fg, bg):
+    return (f'<span style="display:inline-block;padding:3px 9px;border-radius:11px;'
+            f'font-size:11px;font-weight:700;letter-spacing:.3px;color:{fg};'
+            f'background:{bg};font-family:{FONT};">{html.escape(str(text))}</span>')
+
+def _stat(label, value, color):
+    return (f'<td align="center" style="padding:10px 6px;">'
+            f'<div style="font:700 22px {MONO};color:{color};">{html.escape(str(value))}</div>'
+            f'<div style="font:600 10px {FONT};color:{MUTED};letter-spacing:.6px;'
+            f'text-transform:uppercase;padding-top:3px;">{html.escape(label)}</div></td>')
+
+def _ohlc_cell(label, value):
+    return (f'<td align="center" style="padding:7px 4px;border-right:1px solid {LINE};">'
+            f'<div style="font:600 10px {FONT};color:{MUTED};">{label}</div>'
+            f'<div style="font:600 14px {MONO};color:{INK};padding-top:2px;">{value}</div></td>')
+
+def _kv(label, value):
+    return (f'<tr>'
+            f'<td style="font:400 12px {FONT};color:{MUTED};padding:3px 10px 3px 0;'
+            f'white-space:nowrap;">{label}</td>'
+            f'<td style="font:600 13px {MONO};color:{INK};padding:3px 0;">{value}</td></tr>')
+
+def _stock_card(idx, r):
+    is_clear = bool(r["is_clear"])
+    accent = GREEN if is_clear else SLATE
+    seq = int(r["alert_seq"]) if "alert_seq" in r and pd.notna(r["alert_seq"]) else 1
+
+    # No tier badge: the scan only ever reports breakouts that happened
+    # today, and today is always inside the current unclosed month, so tier
+    # was always "preliminary" -- a constant label carries no information.
+    # The column is still recorded in alert_log.
+    badges = [_badge("CLEAR", GREEN, GREEN_BG) if is_clear else _badge("NOT CLEAR", SLATE, SLATE_BG)]
+    if seq > 1:
+        badges.append(_badge(f"ALERT #{seq} THIS MONTH", AMBER, AMBER_BG))
+
+    tph, tphd = _f(r["true_prior_high"]), str(r["true_prior_high_date"])[:10]
+    dur = "n/a" if pd.isna(r["duration_months"]) else f"{float(r['duration_months']):.1f} months ago"
+    cp = "n/a" if pd.isna(r["clearance_pct"]) else f"{float(r['clearance_pct']):.1f}%"
+    vr = "n/a" if pd.isna(r["vol_ratio"]) else f"{float(r['vol_ratio']):.2f}x"
+
+    return f"""
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#ffffff;border:1px solid {LINE};border-left:4px solid {accent};border-radius:6px;margin-bottom:10px;">
+  <tr><td style="padding:13px 15px 11px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+      <td style="font:700 17px {FONT};color:{INK};">
+        <span style="color:{MUTED};font-weight:400;font-size:13px;">{idx}.</span>
+        &nbsp;{html.escape(str(r['symbol']))}
+      </td>
+      <td align="right">{'&nbsp;'.join(badges)}</td>
+    </tr></table>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:11px;border:1px solid {LINE};border-radius:5px;background:#fafbfc;">
+      <tr>
+        {_ohlc_cell('OPEN', _f(r['breakout_day_open']))}
+        {_ohlc_cell('HIGH', _f(r['breakout_day_high']))}
+        {_ohlc_cell('LOW', _f(r['breakout_day_low']))}
+        <td align="center" style="padding:7px 4px;">
+          <div style="font:600 10px {FONT};color:{MUTED};">CLOSE</div>
+          <div style="font:700 14px {MONO};color:{accent};padding-top:2px;">{_f(r['breakout_day_close'])}</div>
+        </td>
+      </tr>
+    </table>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:11px;">
+      {_kv('Breakout date', str(r['breakout_date'])[:10])}
+      {_kv('Entry &mdash; prior ATH', f'{tph} <span style="font:400 11px {FONT};color:{MUTED};">on {tphd} &middot; {dur}</span>')}
+      {_kv('Stop &mdash; BO day low', f"<span style='color:{RED};'>{_f(r['breakout_day_low'])}</span>")}
+      {_kv('Body / Clearance / Volume', f"{_f(r['body_pct'])}% &nbsp;&middot;&nbsp; {cp} &nbsp;&middot;&nbsp; {vr} of 50d avg")}
+    </table>
+  </td></tr>
+</table>"""
+
+def _section(title, sub, rows, color):
+    if not len(rows):
+        return ""
+    cards = "".join(_stock_card(i, r) for i, (_, r) in enumerate(rows.iterrows(), 1))
+    return f"""
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:20px 0 9px;">
+  <tr><td style="border-left:3px solid {color};padding-left:9px;">
+    <div style="font:700 14px {FONT};color:{INK};letter-spacing:.3px;">{title}
+      <span style="color:{MUTED};font-weight:400;">({len(rows)})</span></div>
+    <div style="font:400 11px {FONT};color:{MUTED};padding-top:2px;">{sub}</div>
+  </td></tr>
+</table>{cards}"""
+
+def _drift_html(drift_df):
+    """Compact summary, not a per-stock table -- see format_drift_notes()."""
+    if drift_df is None or drift_df.empty:
+        return ""
+    c = drift_field_counts(drift_df)
+    month = str(drift_df["month_date"].iloc[0])[:7]
+    chips = "".join(
+        f'<td align="center" style="padding:6px 4px;">'
+        f'<div style="font:700 17px {MONO};color:{AMBER if c[f] else MUTED};">{c[f]:,}</div>'
+        f'<div style="font:600 10px {FONT};color:{MUTED};letter-spacing:.5px;">{f.upper()}</div></td>'
+        for f in ("open", "high", "low", "close"))
+    return f"""
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:22px 0 9px;">
+  <tr><td style="border-left:3px solid {AMBER};padding-left:9px;">
+    <div style="font:700 14px {FONT};color:{INK};">Additional notes</div>
+    <div style="font:400 11px {FONT};color:{MUTED};padding-top:2px;">Monthly data rebuilt from daily &mdash; {month}</div>
+  </td></tr>
+</table>
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#ffffff;border:1px solid {LINE};border-radius:6px;">
+  <tr><td style="padding:13px 15px;">
+    <div style="font:400 13px {FONT};color:{INK};">
+      <b style="font-size:17px;">{len(drift_df):,}</b> stocks corrected for {month}, by field:
+    </div>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:8px;background:#fafbfc;border:1px solid {LINE};border-radius:5px;">
+      <tr>{chips}</tr>
+    </table>
+    <div style="font:400 12px {FONT};color:{SLATE};line-height:1.55;padding-top:10px;">{DRIFT_EXPLAINER}</div>
+    <div style="font:400 11px {FONT};color:{MUTED};padding-top:7px;">
+      Row-level before/after detail: <code>monthly_drift_log</code> table.
+    </div>
+  </td></tr>
+</table>"""
+
+def format_email_html(df, as_of_label, nifty_above, drift_df=None, excluded_count=0):
+    n_total = len(df)
+    n_clear = int(df["is_clear"].sum()) if n_total else 0
+    n_repeat = int(df["alert_seq"].gt(1).sum()) if n_total and "alert_seq" in df else 0
+
+    nifty_txt = "Nifty 500 above 50 DMA" if nifty_above else "Nifty 500 below 50 DMA"
+    nifty_badge = _badge(nifty_txt, GREEN, GREEN_BG) if nifty_above else _badge(nifty_txt, RED, RED_BG)
+
+    if n_total:
+        clear = df[df["is_clear"]].sort_values("body_pct", ascending=False)
+        rest = df[~df["is_clear"]].sort_values("body_pct", ascending=False)
+        sections = (
+            _section("CLEAR", f"Body &ge; {CLEAR_BODY_PCT}% &middot; clearance &ge; {CLEAR_CLEARANCE_PCT}% "
+                              f"&middot; volume &ge; {CLEAR_VOL_RATIO}x 50d average", clear, GREEN)
+            + _section("OTHER", "Broke out, but did not meet every CLEAR threshold", rest, SLATE))
+    else:
+        sections = (f'<table role="presentation" width="100%" style="background:#ffffff;border:1px solid {LINE};'
+                    f'border-radius:6px;margin-top:16px;"><tr><td align="center" style="padding:34px 16px;'
+                    f'font:400 14px {FONT};color:{MUTED};">No breakouts today.</td></tr></table>')
+
+    excl = (f'<div style="font:400 11px {FONT};color:{MUTED};padding-top:9px;">'
+            f'{excluded_count} excluded &mdash; close had not cleared a more recent high.</div>'
+            if excluded_count else "")
+
+    return f"""<!DOCTYPE html>
+<html><body style="margin:0;padding:0;background:#eef1f5;">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#eef1f5;">
+ <tr><td align="center" style="padding:22px 12px;">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:680px;">
+
+   <tr><td style="background:#16181d;border-radius:8px 8px 0 0;padding:19px 20px;">
+     <div style="font:700 20px {FONT};color:#ffffff;letter-spacing:.2px;">Fresh Breakouts</div>
+     <div style="font:400 13px {FONT};color:#9ba3af;padding-top:3px;">{html.escape(as_of_label)}</div>
+     <div style="padding-top:11px;">{nifty_badge}</div>
+   </td></tr>
+
+   <tr><td style="background:#ffffff;border-left:1px solid {LINE};border-right:1px solid {LINE};padding:4px 8px;">
+     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+       {_stat('Total', n_total, INK)}
+       {_stat('Clear', n_clear, GREEN)}
+       {_stat('Repeat', n_repeat, AMBER if n_repeat else MUTED)}
+       {_stat('Excluded', excluded_count, MUTED)}
+     </tr></table>
+   </td></tr>
+
+   <tr><td style="background:{SLATE_BG};border:1px solid {LINE};border-radius:0 0 8px 8px;padding:11px 15px;">
+     <div style="font:400 12px {FONT};color:{SLATE};line-height:1.55;">
+       <b style="color:{INK};">Entry</b> prior ATH &mdash; buy on retest to that level, close must hold above BO day low.<br>
+       <b style="color:{INK};">Stop</b> BO day low on a close basis. No target &mdash; hold until stop.
+     </div>{excl}
+   </td></tr>
+
+   <tr><td>{sections}{_drift_html(drift_df)}</td></tr>
+
+   <tr><td style="padding:18px 4px 4px;font:400 11px {FONT};color:#9098a5;line-height:1.5;">
+     Generated by the dark-knight-rises daily pipeline. Every alert above is recorded in the
+     <code>alert_log</code> table for later review.
+   </td></tr>
+
+  </table>
+ </td></tr>
+</table>
+</body></html>"""
 
 def main(as_of=None):
     # Writable now (was read_only): this script owns alert_log.
@@ -411,14 +627,18 @@ def main(as_of=None):
     drift_df = get_drift_log_today(con, as_of)
 
     body = format_email_body(valid, str(as_of), nifty_above, drift_df, excluded_count)
+    html_body = format_email_html(valid, str(as_of), nifty_above, drift_df, excluded_count)
 
     log_alerts(con, valid)
     con.close()
 
     n_total = len(valid)
     n_clear = int(valid["is_clear"].sum()) if n_total else 0
-    subject = f"[Fresh Breakouts] {n_total} today, {n_clear} CLEAR -- {as_of}"
-    send_email(subject, body)
+    n_repeat = int(valid["alert_seq"].gt(1).sum()) if n_total else 0
+    subject = (f"[Fresh Breakouts] {n_total} today, {n_clear} CLEAR"
+               + (f", {n_repeat} repeat" if n_repeat else "")
+               + f" -- {as_of}")
+    send_email(subject, body, html_body)
 
     return valid, body
 
