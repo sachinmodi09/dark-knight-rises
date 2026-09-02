@@ -245,7 +245,16 @@ def attach_alert_seq(con, df):
             SELECT COUNT(*) FROM alert_log
             WHERE symbol = ? AND breakout_month = ? AND alert_date < ?
         """, [r["symbol"], r["breakout_month"], r["breakout_date"]]).fetchone()[0]
-        seqs.append(prior + 1)
+        seq = prior + 1
+        # is_repeat means this stock already broke out earlier in the same
+        # month, so an earlier alert definitely happened -- even if alert_log
+        # has no row for it (the table was added mid-month, so alerts sent
+        # before it existed were never recorded). Without this floor those
+        # rows come back as seq 1 and the email drops the repeat flag
+        # entirely, which is exactly what happened on the 2026-09-02 run.
+        if bool(r.get("is_repeat", False)) and seq < 2:
+            seq = 2
+        seqs.append(seq)
     df = df.copy()
     df["alert_seq"] = seqs
     return df
@@ -280,17 +289,27 @@ def log_alerts(con, df):
         ])
 
 def split_valid_and_excluded(df):
-    """A negative clearance_pct means today's close still hasn't cleared a
-    more recent high than the one breakout_monthly's prev_ath checked
-    (prev_ath is monthly-high based -- see module docstring) -- e.g.
-    CHENNPETRO's 2026-07-21 breakout closed at 1258.10, still below the
-    1279.70 high set 2026-07-16. That's not a confirmed breakout yet, so
-    it's dropped entirely rather than shown as "OTHER" or logged as sent."""
+    """Drop anything that hasn't actually cleared the TRUE prior high --
+    e.g. CHENNPETRO's 2026-07-21 breakout closed at 1258.10, still below
+    the 1279.70 high set 2026-07-16. Not a confirmed breakout, so it's not
+    shown as "OTHER" and not logged as sent.
+
+    The test is on the price itself (close > true_prior_high), NOT on the
+    sign of clearance_pct. clearance_pct divides by the candle body
+    (close - open), so on a RED candle both numerator and denominator go
+    negative and the ratio comes back spuriously POSITIVE -- sailing
+    straight through a `clearance_pct >= 0` filter. Real cases from the
+    2026-09-02 run: SAKAR closed 985.80 against a 999.00 prior high and
+    scored +183.3%; CORDSCABLE closed 315.50 against 316.00 and scored
+    +11.5%. Both were reported as breakouts despite closing BELOW the
+    level they were supposed to have broken."""
     if df.empty:
         return df, 0
-    excluded_count = int((df["clearance_pct"] < 0).sum())
-    valid = df[(df["clearance_pct"].isna()) | (df["clearance_pct"] >= 0)]
-    return valid, excluded_count
+    cleared = df["true_prior_high"].isna() | (df["breakout_day_close"] > df["true_prior_high"])
+    non_negative = df["clearance_pct"].isna() | (df["clearance_pct"] >= 0)
+    keep = cleared & non_negative
+    excluded_count = int((~keep).sum())
+    return df[keep], excluded_count
 
 DRIFT_NOTES_MAX = 25
 
