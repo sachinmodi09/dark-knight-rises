@@ -321,29 +321,38 @@ def split_valid_and_excluded(df):
     excluded_count = int((~keep).sum())
     return df[keep], excluded_count
 
-DRIFT_NOTES_MAX = 25
+DRIFT_EXPLAINER = (
+    "Yahoo's monthly bar for an unfinished month returns only the LATEST day's "
+    "candle, not the month-to-date aggregate, so open/high/low are rebuilt from "
+    "daily_ohlc. Close is unaffected (the last day's close IS the month-to-date "
+    "close). Current month only -- historical months are never touched."
+)
+
+def drift_field_counts(drift_df):
+    """How many of the corrections touched each field. Verified against the
+    2026-09-02 run: open 1378, high 1053, low 308, close 0 -- exactly the
+    signature of Yahoo returning one day's candle instead of the aggregate."""
+    return {f: int(drift_df["drifted_fields"].str.contains(f + ":", regex=False).sum())
+            for f in ("open", "high", "low", "close")}
 
 def format_drift_notes(drift_df):
+    """One summary line rather than a per-stock dump: this is a single
+    systematic quirk in Yahoo's feed affecting most of the universe every
+    day, not N separate data problems worth reading individually. Row-level
+    before/after evidence lives in the monthly_drift_log table."""
     if drift_df.empty:
         return []
-    total = len(drift_df)
-    shown = drift_df.head(DRIFT_NOTES_MAX)
-    title = f"--- ADDITIONAL NOTES: Monthly data corrected from daily ({total}) ---"
-    if total > DRIFT_NOTES_MAX:
-        title += f"  (showing top {DRIFT_NOTES_MAX} by drift %; full log in monthly_drift_log table)"
-    lines = [title, ""]
-    for i, (_, r) in enumerate(shown.iterrows(), 1):
-        lines.extend([
-            f"{i}. {r['symbol']}  --  {str(r['month_date'])[:7]}",
-            f"   Yahoo monthly : O:{r['yahoo_open']:.2f} H:{r['yahoo_high']:.2f} "
-            f"L:{r['yahoo_low']:.2f} C:{r['yahoo_close']:.2f}",
-            f"   Daily-derived : O:{r['daily_open']:.2f} H:{r['daily_high']:.2f} "
-            f"L:{r['daily_low']:.2f} C:{r['daily_close']:.2f}",
-            f"   Drifted       : {r['drifted_fields']}  (threshold 0.5%)",
-            f"   -> Replaced with daily-derived OHLC.",
-            "",
-        ])
-    return lines
+    c = drift_field_counts(drift_df)
+    month = str(drift_df["month_date"].iloc[0])[:7]
+    return [
+        "--- ADDITIONAL NOTES ---",
+        "",
+        f"Monthly data corrected from daily for {month} : {len(drift_df)} stocks "
+        f"(open {c['open']}, high {c['high']}, low {c['low']}, close {c['close']}).",
+        DRIFT_EXPLAINER,
+        "Row-level before/after detail: monthly_drift_log table.",
+        "",
+    ]
 
 def format_email_body(df, as_of_label, nifty_above, drift_df=None, excluded_count=0):
     """`df` is expected to already be the valid (post-exclusion) set from
@@ -384,7 +393,7 @@ def format_email_body(df, as_of_label, nifty_above, drift_df=None, excluded_coun
             seq = int(r["alert_seq"]) if "alert_seq" in r and pd.notna(r["alert_seq"]) else 1
             seq_tag = f"  --  ALERT #{seq} THIS MONTH" if seq > 1 else ""
             out.extend([
-                f"{i}. {r['symbol']}  --  {r['tier'].upper()}  --  {'CLEAR' if r['is_clear'] else 'not clear'}{seq_tag}",
+                f"{i}. {r['symbol']}  --  {'CLEAR' if r['is_clear'] else 'not clear'}{seq_tag}",
                 f"   Breakout Date : {r['breakout_date']}",
                 f"   Breakout Day  : O:{r['breakout_day_open']:.2f} H:{r['breakout_day_high']:.2f} "
                 f"L:{r['breakout_day_low']:.2f} C:{r['breakout_day_close']:.2f}",
@@ -445,8 +454,11 @@ def _stock_card(idx, r):
     accent = GREEN if is_clear else SLATE
     seq = int(r["alert_seq"]) if "alert_seq" in r and pd.notna(r["alert_seq"]) else 1
 
-    badges = [_badge("CLEAR", GREEN, GREEN_BG) if is_clear else _badge("NOT CLEAR", SLATE, SLATE_BG),
-              _badge(str(r["tier"]).upper(), BLUE, BLUE_BG)]
+    # No tier badge: the scan only ever reports breakouts that happened
+    # today, and today is always inside the current unclosed month, so tier
+    # was always "preliminary" -- a constant label carries no information.
+    # The column is still recorded in alert_log.
+    badges = [_badge("CLEAR", GREEN, GREEN_BG) if is_clear else _badge("NOT CLEAR", SLATE, SLATE_BG)]
     if seq > 1:
         badges.append(_badge(f"ALERT #{seq} THIS MONTH", AMBER, AMBER_BG))
 
@@ -499,37 +511,36 @@ def _section(title, sub, rows, color):
 </table>{cards}"""
 
 def _drift_html(drift_df):
+    """Compact summary, not a per-stock table -- see format_drift_notes()."""
     if drift_df is None or drift_df.empty:
         return ""
-    total, shown = len(drift_df), drift_df.head(DRIFT_NOTES_MAX)
-    note = (f" &middot; showing top {DRIFT_NOTES_MAX} by drift; full log in "
-            f"<code>monthly_drift_log</code>" if total > DRIFT_NOTES_MAX else "")
-    body = "".join(
-        f'<tr style="background:{"#ffffff" if i % 2 else "#fafbfc"};">'
-        f'<td style="padding:6px 9px;font:600 12px {FONT};color:{INK};border-top:1px solid {LINE};">'
-        f'{html.escape(str(r["symbol"]))}<div style="font:400 10px {FONT};color:{MUTED};">{str(r["month_date"])[:7]}</div></td>'
-        f'<td style="padding:6px 9px;font:400 11px {MONO};color:{MUTED};border-top:1px solid {LINE};">'
-        f'{_f(r["yahoo_open"])} / {_f(r["yahoo_high"])} / {_f(r["yahoo_low"])} / {_f(r["yahoo_close"])}</td>'
-        f'<td style="padding:6px 9px;font:400 11px {MONO};color:{INK};border-top:1px solid {LINE};">'
-        f'{_f(r["daily_open"])} / {_f(r["daily_high"])} / {_f(r["daily_low"])} / {_f(r["daily_close"])}</td>'
-        f'<td style="padding:6px 9px;font:600 11px {MONO};color:{AMBER};border-top:1px solid {LINE};">'
-        f'{html.escape(str(r["drifted_fields"]))}</td></tr>'
-        for i, (_, r) in enumerate(shown.iterrows()))
+    c = drift_field_counts(drift_df)
+    month = str(drift_df["month_date"].iloc[0])[:7]
+    chips = "".join(
+        f'<td align="center" style="padding:6px 4px;">'
+        f'<div style="font:700 17px {MONO};color:{AMBER if c[f] else MUTED};">{c[f]:,}</div>'
+        f'<div style="font:600 10px {FONT};color:{MUTED};letter-spacing:.5px;">{f.upper()}</div></td>'
+        for f in ("open", "high", "low", "close"))
     return f"""
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:22px 0 9px;">
   <tr><td style="border-left:3px solid {AMBER};padding-left:9px;">
-    <div style="font:700 14px {FONT};color:{INK};">Additional notes &mdash; monthly data corrected from daily
-      <span style="color:{MUTED};font-weight:400;">({total})</span></div>
-    <div style="font:400 11px {FONT};color:{MUTED};padding-top:2px;">Current month only; historical months untouched{note}</div>
+    <div style="font:700 14px {FONT};color:{INK};">Additional notes</div>
+    <div style="font:400 11px {FONT};color:{MUTED};padding-top:2px;">Monthly data rebuilt from daily &mdash; {month}</div>
   </td></tr>
 </table>
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#ffffff;border:1px solid {LINE};border-radius:6px;">
-  <tr style="background:{SLATE_BG};">
-    <th align="left" style="padding:7px 9px;font:700 10px {FONT};color:{SLATE};letter-spacing:.5px;">STOCK</th>
-    <th align="left" style="padding:7px 9px;font:700 10px {FONT};color:{SLATE};letter-spacing:.5px;">YAHOO O/H/L/C</th>
-    <th align="left" style="padding:7px 9px;font:700 10px {FONT};color:{SLATE};letter-spacing:.5px;">DAILY-DERIVED O/H/L/C</th>
-    <th align="left" style="padding:7px 9px;font:700 10px {FONT};color:{SLATE};letter-spacing:.5px;">DRIFT</th>
-  </tr>{body}
+  <tr><td style="padding:13px 15px;">
+    <div style="font:400 13px {FONT};color:{INK};">
+      <b style="font-size:17px;">{len(drift_df):,}</b> stocks corrected for {month}, by field:
+    </div>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:8px;background:#fafbfc;border:1px solid {LINE};border-radius:5px;">
+      <tr>{chips}</tr>
+    </table>
+    <div style="font:400 12px {FONT};color:{SLATE};line-height:1.55;padding-top:10px;">{DRIFT_EXPLAINER}</div>
+    <div style="font:400 11px {FONT};color:{MUTED};padding-top:7px;">
+      Row-level before/after detail: <code>monthly_drift_log</code> table.
+    </div>
+  </td></tr>
 </table>"""
 
 def format_email_html(df, as_of_label, nifty_above, drift_df=None, excluded_count=0):
