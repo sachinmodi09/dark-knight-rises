@@ -38,11 +38,18 @@ EMAIL_SENDER = os.environ.get("EMAIL_SENDER")
 EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
 EMAIL_RECEIVER = os.environ.get("EMAIL_RECEIVER")
 
+def recipient_list(raw=None):
+    """EMAIL_RECEIVER may hold several comma-separated addresses. smtplib
+    treats a bare string as ONE recipient, so the envelope needs a real
+    list or only the first (malformed, comma-joined) address is attempted."""
+    return [a.strip() for a in (raw if raw is not None else EMAIL_RECEIVER or "").split(",") if a.strip()]
+
 def send_email(subject, body, html_body=None):
     """Sends multipart/alternative when an HTML body is supplied, so clients
     that can render it get the styled version and everything else falls back
     to the plain text one."""
-    if not EMAIL_SENDER or not EMAIL_PASSWORD or not EMAIL_RECEIVER:
+    recipients = recipient_list()
+    if not EMAIL_SENDER or not EMAIL_PASSWORD or not recipients:
         print("Email credentials missing.")
         print(body)
         return
@@ -54,12 +61,12 @@ def send_email(subject, body, html_body=None):
         else:
             msg = MIMEText(body, "plain")
         msg["From"] = EMAIL_SENDER
-        msg["To"] = EMAIL_RECEIVER
+        msg["To"] = ", ".join(recipients)
         msg["Subject"] = subject
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-            server.sendmail(EMAIL_SENDER, EMAIL_RECEIVER, msg.as_string())
-        print(f"Email sent: {subject}")
+            server.sendmail(EMAIL_SENDER, recipients, msg.as_string())
+        print(f"Email sent to {len(recipients)} recipient(s): {subject}")
     except Exception as e:
         print(f"Email failed: {e}")
 
