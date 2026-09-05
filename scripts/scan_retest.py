@@ -23,20 +23,23 @@ EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
 EMAIL_RECEIVER = os.environ.get("EMAIL_RECEIVER")
 
 def send_email(subject, body):
-    if not EMAIL_SENDER or not EMAIL_PASSWORD or not EMAIL_RECEIVER:
+    # EMAIL_RECEIVER may hold several comma-separated addresses; smtplib
+    # treats a bare string as ONE recipient, so split it into a real list.
+    recipients = [a.strip() for a in (EMAIL_RECEIVER or "").split(",") if a.strip()]
+    if not EMAIL_SENDER or not EMAIL_PASSWORD or not recipients:
         print("Email credentials missing.")
         print(body)
         return
     try:
         msg = MIMEMultipart()
         msg["From"]    = EMAIL_SENDER
-        msg["To"]      = EMAIL_RECEIVER
+        msg["To"]      = ", ".join(recipients)
         msg["Subject"] = subject
         msg.attach(MIMEText(body, "plain"))
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-            server.sendmail(EMAIL_SENDER, EMAIL_RECEIVER, msg.as_string())
-        print(f"Email sent: {subject}")
+            server.sendmail(EMAIL_SENDER, recipients, msg.as_string())
+        print(f"Email sent to {len(recipients)} recipient(s): {subject}")
     except Exception as e:
         print(f"Email failed: {e}")
 

@@ -33,7 +33,11 @@ def main():
         f"Check the run log for which step failed and why."
     )
 
-    if not EMAIL_SENDER or not EMAIL_PASSWORD or not EMAIL_RECEIVER:
+    # EMAIL_RECEIVER may hold several comma-separated addresses; smtplib
+    # treats a bare string as ONE recipient, so split it into a real list.
+    recipients = [a.strip() for a in (EMAIL_RECEIVER or "").split(",") if a.strip()]
+
+    if not EMAIL_SENDER or not EMAIL_PASSWORD or not recipients:
         print("Email credentials missing -- printing failure notice instead:")
         print(body)
         return
@@ -41,12 +45,12 @@ def main():
     try:
         msg = MIMEText(body, "plain")
         msg["From"] = EMAIL_SENDER
-        msg["To"] = EMAIL_RECEIVER
+        msg["To"] = ", ".join(recipients)
         msg["Subject"] = subject
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server_conn:
             server_conn.login(EMAIL_SENDER, EMAIL_PASSWORD)
-            server_conn.sendmail(EMAIL_SENDER, EMAIL_RECEIVER, msg.as_string())
-        print(f"Failure email sent: {subject}")
+            server_conn.sendmail(EMAIL_SENDER, recipients, msg.as_string())
+        print(f"Failure email sent to {len(recipients)} recipient(s): {subject}")
     except Exception as e:
         print(f"Failure email itself failed to send: {e}")
 
